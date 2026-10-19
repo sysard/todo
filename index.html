@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Commandocentrum</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23579dff'/%3E%3Cg fill='none' stroke='%231d2125' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 18l4 4 7-8M11 32l4 4 7-8'/%3E%3Crect x='11' y='41' width='10' height='10' rx='2'/%3E%3Cpath d='M30 18h23M30 32h23M30 46h23'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="icon" href="todo.ico" sizes="any">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#579dff">
 <style>
   :root {
     color-scheme: dark;
@@ -45,6 +47,7 @@
     position: relative; z-index: 40; /* backdrop-filter makes a stacking context; lift it so the search results sit above the board */
   }
   .brand { font-weight: 700; font-size: 17px; white-space: nowrap; }
+  .brand .version { font-weight: 400; font-size: 10px; opacity: .6; margin-left: 4px; }
   .search { position: relative; flex: 1; max-width: 560px; margin: 0 auto; }
   .search input {
     width: 100%; height: 34px; padding: 0 12px 0 34px; border-radius: 8px;
@@ -521,7 +524,7 @@
 <body>
 
 <header class="topbar">
-  <div class="brand">Commandocentrum</div>
+  <div class="brand">Commandocentrum<span class="version">v1.3</span></div>
   <div class="search">
     <input id="search" type="text" placeholder="Zoek kaarten…  ( / )" autocomplete="off">
     <svg viewBox="0 0 24 24"><path d="M10 2a8 8 0 0 1 6.32 12.9l5.39 5.4-1.41 1.4-5.4-5.39A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>

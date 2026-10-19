@@ -1,0 +1,12 @@
+{
+  "name": "Commandocentrum",
+  "short_name": "Commandocentrum",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1d2125",
+  "theme_color": "#579dff",
+  "icons": [
+    { "src": "todo.ico", "sizes": "256x256 128x128 64x64 48x48 32x32 24x24 16x16", "type": "image/x-icon" }
+  ]
+}
