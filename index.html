@@ -1,0 +1,2682 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commandocentrum</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23579dff'/%3E%3Cg fill='none' stroke='%231d2125' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 18l4 4 7-8M11 32l4 4 7-8'/%3E%3Crect x='11' y='41' width='10' height='10' rx='2'/%3E%3Cpath d='M30 18h23M30 32h23M30 46h23'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #163056;
+    --text: #b6c2cf;
+    --text-strong: #dee4ea;
+    --muted: #8c9bab;
+    --list-bg-default: #101204;
+    --card-bg: #242528;
+    --card-hover: #2e3035;
+    --surface: #282e33;
+    --input-bg: #22272b;
+    --subtle: #a1bdd914;
+    --subtle-hover: #a6c5e229;
+    --border: #a6c5e229;
+    --primary: #579dff;
+    --primary-hover: #85b8ff;
+    --primary-text: #1d2125;
+    --danger: #f87168;
+    --radius: 12px;
+    --shadow-card: 0 1px 1px #03040480, 0 0 1px #03040480;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 14px/20px -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+  .hidden { display: none !important; }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    height: 52px; flex: none; display: flex; align-items: center; gap: 16px;
+    padding: 0 16px; background: #0d1f3acc; border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); color: var(--text-strong);
+    position: relative; z-index: 40; /* backdrop-filter makes a stacking context; lift it so the search results sit above the board */
+  }
+  .brand { font-weight: 700; font-size: 17px; white-space: nowrap; }
+  .search { position: relative; flex: 1; max-width: 560px; margin: 0 auto; }
+  .search input {
+    width: 100%; height: 34px; padding: 0 12px 0 34px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--input-bg); color: var(--text-strong); font: inherit; outline: none;
+  }
+  .search input::placeholder { color: var(--muted); }
+  .search input:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .search svg { position: absolute; left: 10px; top: 9px; width: 16px; height: 16px; fill: var(--muted); pointer-events: none; }
+  .results {
+    position: absolute; top: 40px; left: 0; right: 0; max-height: 60vh; overflow-y: auto;
+    background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px;
+    box-shadow: 0 8px 24px #03040499, 0 0 0 1px var(--border); z-index: 50;
+  }
+  .result { padding: 8px 10px; border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  .result { background: var(--subtle); box-shadow: inset 0 0 0 1px var(--border); border-radius: 8px; }
+  .result + .result { margin-top: 6px; }
+  .result.active, .result:hover { background: var(--subtle-hover); }
+  .result .r-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-strong); }
+  .result .r-meta { display: flex; align-items: baseline; gap: 8px; }
+  .result .r-list { font-size: 12px; color: var(--muted); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result .r-date { font-size: 11px; color: var(--muted); white-space: nowrap; margin-left: auto; }
+  .result mark { background: #7f5f01; color: #fff; border-radius: 2px; }
+  .results .empty { padding: 10px; color: var(--muted); }
+  /* Linked chain inside a search result: same indent + connector line as on the board */
+  .result.chain { background: none; box-shadow: none; border: 1px dashed var(--muted); padding: 6px; }
+  .result.chain.active, .result.chain:hover { background: var(--subtle); }
+  .result .r-chain { display: flex; flex-direction: column; }
+  .result .r-step {
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;
+    background: var(--subtle); box-shadow: inset 0 0 0 1px var(--border); border-radius: 8px;
+  }
+  .result .r-link + .r-step { margin-left: 16px; }
+  /* Connector between linked cards, centred on the indented card like on the board */
+  .result .r-link { height: 12px; position: relative; flex: none; }
+  .result .r-link::before { content: ""; position: absolute; left: calc(50% + 8px); top: 0; bottom: 0; width: 2px; margin-left: -1px; background: currentColor; opacity: .45; }
+  .result .r-step:not(.hit) { opacity: .6; }
+  .result .r-step:hover { opacity: 1; background: var(--subtle-hover); }
+  .dbstatus {
+    display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 13px;
+    padding: 6px 10px; border-radius: 8px; background: var(--subtle); color: var(--text);
+  }
+  .dbstatus:hover { background: var(--subtle-hover); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4bce97; }
+  .dot.saving { background: #f5cd47; }
+  .dot.error { background: #f87168; }
+
+  /* ---------- Board ---------- */
+  .board {
+    flex: 1; display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 12px 16px; overflow-x: auto; overflow-y: hidden;
+  }
+  .list {
+    --list-bg: var(--list-bg-default); --list-fg: var(--text);
+    flex: none; width: 272px; max-height: 100%; display: flex; flex-direction: column;
+    background: var(--list-bg); color: var(--list-fg);
+    border-radius: var(--radius); box-shadow: var(--shadow-card);
+  }
+  /* Title on its own full-width line; count + buttons wrap to a centred row below it */
+  .list-head { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 4px; padding: 8px 8px 4px 8px; }
+  .list-head .list-title, .list-head .title-input { flex: 1 1 100%; text-align: center; }
+  /* Card count: large badge floating in the top-left corner, rounded bottom-right */
+  .list { position: relative; }
+  .list:not(.collapsed) .list-head { padding-left: 48px; padding-right: 48px; }
+  .list:not(.collapsed) .list-head .count {
+    position: absolute; top: 0; left: 0; z-index: 2; margin: 0;
+    min-width: 40px; height: 36px; padding: 0 10px;
+    font-size: 18px; font-weight: 700; opacity: 1;
+    border-radius: var(--radius) 0 14px 0;
+    background: var(--list-bg); color: var(--list-fg);
+    background-image: linear-gradient(#8c9bab3d, #8c9bab3d);
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, .3);
+  }
+  .list-head { cursor: grab; }
+  .list.list-dragging { display: none; }
+  .list-ph {
+    flex: none; align-self: stretch; max-height: 100%; border-radius: var(--radius);
+    background: #8c9bab1f; box-shadow: inset 0 0 0 2px var(--primary);
+  }
+  .list.collapsed { width: 44px; cursor: pointer; }
+  .list.collapsed:hover { filter: brightness(1.12); }
+  .list.collapsed .cards, .list.collapsed .list-foot, .list.collapsed .list-search, .list.collapsed .icon-btn { display: none; }
+  .list.collapsed .list-head { flex-direction: column; flex-wrap: nowrap; align-items: center; gap: 6px; padding: 8px 4px 10px; }  .list.collapsed .count { order: -1; margin: 0; }
+  .list.collapsed .list-head .list-title { flex: none; writing-mode: vertical-rl; padding: 6px 0; }
+  .list.collapsed.drop-target { box-shadow: 0 0 0 2px var(--primary); filter: brightness(1.12); }
+  .list-title {
+    flex: 1; margin: 0; font-size: 14px; font-weight: 600; line-height: 20px;
+    padding: 6px 8px; border-radius: 6px; cursor: pointer; word-break: break-word;
+  }
+  .title-input {
+    flex: 1; font: inherit; font-weight: 600; padding: 5px 7px; border-radius: 6px;
+    border: 2px solid var(--primary); outline: none; color: var(--text-strong); background: var(--input-bg); min-width: 0;
+  }
+  .count {
+    font-size: 12px; font-weight: 600; min-width: 24px; height: 24px; margin-top: 4px; padding: 0 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 12px; background: #8c9bab29; opacity: .9;
+  }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px; line-height: 1; flex: none;
+  }
+  .icon-btn:hover { background: var(--subtle-hover); }
+  .cards { flex: 1 1 auto; overflow-y: auto; min-height: 4px; padding: 2px 8px; display: flex; flex-direction: column; }
+
+  /* Hover zones between cards to insert at that position */
+  .card-gap { flex: none; position: relative; cursor: pointer; height: 8px; }
+  .card-gap::before {
+    content: ""; position: absolute; background: var(--primary); border-radius: 2px;
+    opacity: 0; transition: opacity .1s;
+  }
+  .card-gap::before { left: 2px; right: 2px; top: 3px; height: 2px; }
+  .card-gap::after {
+    content: "+"; position: absolute; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--primary); color: var(--primary-text); font: 700 16px/20px sans-serif; text-align: center;
+    opacity: 0; transition: opacity .1s; z-index: 2; box-shadow: 0 0 0 3px var(--list-bg);
+  }
+  .card-gap::after { left: 50%; top: 50%; margin: -10px 0 0 -10px; }
+  .card-gap:hover::before, .card-gap:hover::after { opacity: 1; transition-delay: .08s; }
+  .gap-composer { margin: 4px 0; }
+  body.panning, body.panning * { cursor: grabbing !important; user-select: none; }
+  body.dnd .card-gap, .list.filtering .card-gap { display: none; }
+  body.dnd .cards, .list.filtering .cards { gap: 8px; }
+
+  /* Per-list search */
+  .list-search {
+    display: flex; align-items: center; gap: 6px; margin: 0 8px 6px; padding: 0 2px 0 10px;
+    background: var(--input-bg); border-radius: 8px; box-shadow: inset 0 0 0 2px var(--primary); color: var(--muted);
+  }
+  .list-search svg { flex: none; }
+  .list-search input { flex: 1; min-width: 0; height: 32px; border: 0; outline: none; background: none; color: var(--text-strong); font: inherit; }
+  .list-search .icon-btn { width: 28px; height: 28px; font-size: 14px; }
+  .card.filtered-out { display: none; }
+  .list-empty { color: var(--muted); font-size: 13px; padding: 6px 4px; text-align: center; }
+  .list-head .icon-btn[data-act="list-search"] { opacity: .75; }
+  .list-head .icon-btn[data-act="list-search"]:hover { opacity: 1; }
+  .card {
+    background: var(--card-bg); color: var(--text-strong); border-radius: 8px; padding: 8px 12px; box-shadow: var(--shadow-card);
+    cursor: pointer; white-space: pre-wrap; word-break: break-word; user-select: none;
+    outline: 2px solid transparent; outline-offset: 0;
+  }
+  .card:hover { outline-color: var(--primary); background: var(--card-hover); }
+  .card[data-color="green"]  { background: #164b35; }
+  .card[data-color="yellow"] { background: #533f04; }
+  .card[data-color="orange"] { background: #702e00; }
+  .card[data-color="red"]    { background: #5d1f1a; }
+  .card[data-color="purple"] { background: #352c63; }
+  .card.dragging { display: none; }
+  .card-ph { border-radius: 8px; background: #a6c5e21f; outline: 1px dashed #a6c5e24d; flex: none; }
+
+  /* Linked cards: a thin connector line; dependent cards slightly faded */
+  .card.linked { opacity: .6; margin-left: 16px; }
+  .card.linked:hover { opacity: 1; }
+  .card-link {
+    flex: none; height: 16px; position: relative; /* 2x the normal 8px card spacing */
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round'%3E%3Cg stroke='black' stroke-width='4'%3E%3Ccircle cx='6' cy='6' r='3'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Cpath d='M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12'/%3E%3C/g%3E%3Cg stroke='white' stroke-width='2'%3E%3Ccircle cx='6' cy='6' r='3'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Cpath d='M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12'/%3E%3C/g%3E%3C/svg%3E") 12 12, pointer;
+  }
+  .card-link::before {
+    content: ""; position: absolute; left: calc(50% + 8px); top: 0; bottom: 0; width: 2px; margin-left: -1px; /* centred on the indented card */
+    background: currentColor; opacity: .45;
+  }
+  .card-link:hover::before { background: #f87168; opacity: 1; }
+  body.dnd .card-link { margin: -8px 0; } /* absorb the 8px drag-mode gaps so the spacing stays 16px */
+  .card-link.dragging, .list.filtering .card-link { display: none; }
+  /* While dragging: "drop here to link" square on the hovered card (size/inset match LINK_ZONE in JS) */
+  .card.link-hover { position: relative; opacity: 1; }
+  .card.link-hover::after {
+    content: ""; position: absolute; right: 6px; top: 50%; width: 28px; height: 28px; margin-top: -14px; box-sizing: border-box;
+    border: 2px dashed #a6c5e299; border-radius: 6px; background: var(--card-bg) center / 16px no-repeat
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a6c5e2' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E");
+  }
+  .card.link-target { outline-color: var(--primary); }
+  .card.link-target::after {
+    border-style: solid; border-color: var(--primary); background-color: var(--primary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d2125' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E");
+  }
+  .card-ph.link { visibility: hidden; }
+  .drag-ghost { position: fixed; top: -2000px; left: 0; display: flex; flex-direction: column; pointer-events: none; }
+  .card.flash { animation: flash 2.4s ease-out; outline-color: var(--primary); }
+  @keyframes flash {
+    0%, 30%, 60% { box-shadow: 0 0 0 4px #579dff, 0 0 22px #579dffcc; transform: scale(1.03); }
+    15%, 45% { box-shadow: 0 0 0 2px #579dff; transform: scale(1); }
+    100% { box-shadow: var(--shadow-card); transform: scale(1); }
+  }
+  .list-foot { padding: 6px 8px 8px; }
+  .add-card {
+    width: 100%; text-align: left; padding: 6px 8px; border-radius: 8px; color: var(--list-fg); opacity: .85; font-weight: 500;
+  }
+  .add-card:hover { background: var(--subtle-hover); opacity: 1; }
+  .composer textarea, .composer input {
+    width: 100%; resize: none; border: 0; border-radius: 8px; padding: 8px 12px; font: inherit; color: var(--text-strong);
+    box-shadow: var(--shadow-card); outline: none; background: var(--card-bg);
+  }
+  .composer textarea:focus, .composer input:focus { box-shadow: inset 0 0 0 2px var(--primary); }
+  .composer .row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+  .composer .icon-btn { color: var(--list-fg); }
+  .primary { background: var(--primary); color: var(--primary-text); padding: 6px 12px; border-radius: 4px; font-weight: 600; }
+  .primary:hover { background: var(--primary-hover); }
+  .add-list {
+    flex: none; width: 272px; border-radius: var(--radius); background: #ffffff14; color: var(--text-strong);
+  }
+  .add-list > button { width: 100%; text-align: left; padding: 12px; font-weight: 500; border-radius: var(--radius); }
+  .add-list > button:hover { background: #ffffff1f; }
+  .add-list.open { background: var(--list-bg-default); padding: 8px; color: var(--text); }
+
+  /* ---------- Popover & modal ---------- */
+  .pop {
+    position: fixed; z-index: 60; width: 304px; background: var(--surface); color: var(--text); border-radius: 8px;
+    padding: 12px; box-shadow: 0 8px 24px #03040499, 0 0 0 1px var(--border);
+  }
+  .pop-head { text-align: center; font-weight: 600; color: var(--muted); margin-bottom: 8px; position: relative; }
+  .pop-head .icon-btn { position: absolute; right: -6px; top: -6px; }
+  .pop-sec { font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
+  .pop-item { display: block; width: 100%; text-align: left; padding: 6px 12px; border-radius: 4px; margin: 0 -12px; width: calc(100% + 24px); }
+  .pop-item:hover { background: var(--subtle-hover); }
+  .pop-item.danger { color: var(--danger); }
+  .pop-item.danger.confirm { background: var(--danger); color: var(--primary-text); }
+  .pop-toggle { display: flex; gap: 8px; align-items: center; cursor: pointer; font-size: 13px; color: var(--text); }
+  /* Extra space right of a list, on top of the normal 12px gap */
+  .list.space-1, .list-ph.space-1 { margin-right: 48px; }
+  .list.space-2, .list-ph.space-2 { margin-right: 96px; }
+  .list.space-3, .list-ph.space-3 { margin-right: 144px; }
+  .space-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text); }
+  .space-opts { display: inline-flex; gap: 2px; padding: 2px; border-radius: 6px; background: #8c9bab1f; }
+  .space-opt { min-width: 28px; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--text); }
+  .space-opt:hover { background: var(--subtle-hover); }
+  .space-opt.sel { background: var(--primary); color: var(--primary-text); }
+  .pop-toggle input { accent-color: var(--primary); width: 16px; height: 16px; margin: 0; }
+  .ctx { width: 248px; padding: 8px 10px 10px; }
+  .ctx .pop-sec:first-child { margin-top: 2px; }
+  .move-list { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; }
+  .move-opt {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px;
+    font-weight: 600; text-align: left; box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .move-opt:hover { filter: brightness(1.2); box-shadow: inset 0 0 0 2px var(--primary); }
+  .move-opt span { font-size: 12px; font-weight: 500; opacity: .7; }
+  .ctx-hint { font-size: 12px; line-height: 16px; color: var(--muted); padding: 0 2px 2px; }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .swatch {
+    height: 32px; border-radius: 4px; border: 1px solid var(--border); position: relative;
+  }
+  .swatch:hover { filter: brightness(1.15); }
+  .swatch.sel { box-shadow: 0 0 0 2px var(--primary); }
+  .swatch.sel::after {
+    content: "✓"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: var(--sw-fg, #dee4ea);
+  }
+  .swatch.none { background: repeating-linear-gradient(45deg, #22272b 0 6px, #2c333a 6px 12px); }
+  .custom-color { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; }
+  .custom-color input { width: 40px; height: 28px; border: 0; padding: 0; background: none; cursor: pointer; }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 100; background: #030404b3; display: flex; align-items: flex-start; justify-content: center;
+    padding: 64px 16px; overflow-y: auto;
+  }
+  .dialog { background: var(--surface); color: var(--text); border-radius: 12px; padding: 20px 24px; width: 100%; max-width: 560px; position: relative; box-shadow: 0 0 0 1px var(--border); }
+  .dialog h1 { font-size: 20px; margin: 0 0 8px; color: var(--text-strong); }
+  .dialog .close { position: absolute; right: 10px; top: 10px; }
+  .dialog textarea {
+    width: 100%; min-height: 90px; resize: vertical; font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 8px;
+    border: 2px solid var(--border); background: var(--input-bg); outline: none; color: var(--text-strong);
+  }
+  .dialog textarea:focus { border-color: var(--primary); }
+  .meta { color: var(--muted); font-size: 13px; margin: 4px 0 14px; }
+  .meta b { color: var(--text); }
+  .dialog .swatches { grid-template-columns: repeat(6, 56px); }
+  .dialog-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .btn-danger { color: var(--danger); padding: 6px 12px; border-radius: 4px; background: var(--subtle); font-weight: 500; }
+  .btn-danger:hover { background: #5d1f1a; }
+  .btn-danger.confirm { background: var(--danger); color: var(--primary-text); }
+  .btn { padding: 8px 14px; border-radius: 6px; background: var(--subtle); font-weight: 500; }
+  .btn:hover { background: var(--subtle-hover); }
+  .connect-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .connect-actions button { padding: 10px 14px; text-align: left; }
+  .new-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .choice-card {
+    display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 8px; text-align: left;
+    background: var(--subtle); box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .choice-card:hover { background: var(--subtle-hover); box-shadow: inset 0 0 0 2px var(--primary); }
+  .choice-card b { color: var(--text-strong); font-size: 15px; }
+  .choice-card .badge {
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; vertical-align: 2px;
+    font-style: normal; font-size: 11px; font-weight: 600; background: var(--primary); color: var(--primary-text);
+  }
+  .choice-card span { color: var(--muted); font-size: 13px; line-height: 1.45; }
+  @media (max-width: 520px) { .new-choice { grid-template-columns: 1fr; } }
+  .connect-msg { color: var(--muted); }
+  .connect-msg b { color: var(--text-strong); }
+  .connect-err { color: var(--danger); margin-top: 10px; }
+  #oneDrive { z-index: 110; }
+  #oneDrive .dialog { max-width: 480px; }
+  #oneDrive .warn-icon {
+    display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; margin: 4px auto 12px;
+    border-radius: 50%; color: var(--danger); background: color-mix(in srgb, var(--danger) 18%, transparent);
+  }
+  #oneDrive h1 { text-align: center; }
+  #oneDrive p { text-align: center; color: var(--text); line-height: 1.5; margin: 0 0 10px; }
+  #oneDrive p b { color: var(--text-strong); }
+  .ack-btn {
+    flex: 1; padding: 10px 14px; border-radius: 6px; font-weight: 600;
+    background: var(--subtle); color: var(--muted); cursor: not-allowed;
+  }
+  .ack-btn.ready { background: var(--primary); color: var(--primary-text); cursor: pointer; }
+  .ack-btn.ready:hover { background: var(--primary-hover); }
+
+
+  /* ---------- Card: text, badges, separator ---------- */
+  .card-badges { display: flex; gap: 8px; margin-top: 4px; color: var(--muted); }
+  .card-badges svg { display: block; }
+  .card.sep { background: none; box-shadow: none; padding: 7px 2px; min-height: 16px; }
+  .card.sep::before { content: ""; display: block; border-top: 2px solid #a6c5e24d; border-radius: 2px; }
+  .card.sep:hover { outline-color: transparent; background: none; }
+  .card.sep:hover::before { border-color: var(--primary); }
+
+  /* ---------- Card dialog ---------- */
+  .dialog.card-dialog { max-width: 760px; }
+  .dialog textarea#cardText {
+    min-height: 0; resize: none; overflow: hidden; font-size: 20px; font-weight: 600; line-height: 26px;
+    padding: 4px 8px; margin: 0 36px 0 -10px; width: calc(100% - 26px); background: transparent; border-color: transparent;
+  }
+  .dialog textarea#cardText:hover { background: var(--subtle); }
+  .dialog textarea#cardText:focus { background: var(--input-bg); border-color: var(--primary); }
+  .sec-head { display: flex; align-items: center; gap: 10px; margin: 20px 0 8px; }
+  .sec-head h3 { margin: 0; font-size: 15px; color: var(--text-strong); flex: 1; }
+  .sec-head svg { color: var(--muted); }
+  .btn.small { padding: 5px 12px; font-size: 13px; }
+  .desc-empty {
+    background: var(--subtle); border-radius: 8px; padding: 10px 12px; min-height: 60px; color: var(--muted); cursor: pointer;
+  }
+  .desc-empty:hover { background: var(--subtle-hover); }
+  .desc-view { cursor: pointer; border-radius: 8px; padding: 2px 4px; margin: 0 -4px; }
+  .desc-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+  /* ---------- Markdown content (view + editor) ---------- */
+  .md-view { color: var(--text-strong); line-height: 1.55; word-break: break-word; }
+  .md-view > :first-child { margin-top: 0; }
+  .md-view h1 { font-size: 20px; margin: 16px 0 8px; }
+  .md-view h2 { font-size: 17px; margin: 14px 0 6px; }
+  .md-view h3 { font-size: 15px; margin: 12px 0 6px; }
+  .md-view p { margin: 0 0 8px; }
+  .md-view ul, .md-view ol { margin: 0 0 8px; padding-left: 24px; }
+  .md-view li { margin: 2px 0; }
+  .md-view li:has(> input[type=checkbox]) { list-style: none; margin-left: -20px; }
+  .md-view li > input[type=checkbox] { margin: 0 8px 0 0; vertical-align: -2px; accent-color: var(--primary); width: 15px; height: 15px; cursor: pointer; }
+  .md-view blockquote { margin: 0 0 8px; padding: 2px 12px; border-left: 3px solid #a6c5e24d; color: var(--text); }
+  .md-view pre { background: #161a1d; padding: 10px 12px; border-radius: 6px; overflow-x: auto; margin: 0 0 8px; font: 13px/1.45 Consolas, "Cascadia Mono", monospace; white-space: pre-wrap; }
+  .md-view code { background: #a6c5e229; padding: 1px 5px; border-radius: 3px; font: 13px Consolas, "Cascadia Mono", monospace; }
+  .md-view pre code { background: none; padding: 0; }
+  .md-view hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
+  .md-view img { max-width: 100%; border-radius: 6px; }
+  .md-view a { color: var(--primary); }
+  .md-view del { opacity: .75; }
+
+  /* ---------- Editor ---------- */
+  .md-editor { border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); }
+  .md-editor:focus-within { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .md-toolbar {
+    display: flex; align-items: center; gap: 2px; padding: 5px 6px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; position: sticky; top: -64px; background: var(--card-bg); border-radius: 8px 8px 0 0; z-index: 1;
+  }
+  .tb {
+    height: 30px; min-width: 30px; padding: 0 6px; border-radius: 4px; display: inline-flex; align-items: center;
+    justify-content: center; gap: 3px; color: var(--text); font-size: 15px;
+  }
+  .tb:hover { background: var(--subtle-hover); }
+  .tb.on { background: #579dff33; color: var(--primary); }
+  .tb .caret { font-size: 10px; opacity: .8; }
+  .tb svg { display: block; }
+  .md-editor.raw .tb:not([data-cmd="markdown"]):not([data-cmd="help"]) { opacity: .35; pointer-events: none; }
+  .tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .tb-spacer { flex: 1; }
+  .md-area {
+    position: relative; min-height: 150px; max-height: 55vh; overflow-y: auto; padding: 12px 14px; outline: none;
+  }
+  .md-area.is-empty::before {
+    content: attr(data-ph); position: absolute; left: 14px; right: 14px; top: 12px; color: var(--muted); pointer-events: none;
+  }
+  .md-raw {
+    display: block; width: 100%; min-height: 180px; border: 0; background: none; padding: 12px 14px; color: var(--text-strong);
+    font: 13px/1.55 Consolas, "Cascadia Mono", monospace; resize: vertical; outline: none;
+  }
+  .dialog textarea.md-raw { box-shadow: none; border: 0; border-radius: 0 0 8px 8px; font-size: 13px; }
+  .md-urlbar { display: flex; gap: 6px; padding: 6px; border-bottom: 1px solid var(--border); }
+  .md-urlbar input {
+    flex: 1; min-width: 0; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--input-bg); color: var(--text-strong); font: inherit; outline: none;
+  }
+  .md-urlbar input:focus { border-color: var(--primary); }
+  .md-urlbar.bad input { border-color: var(--danger); }
+  .md-menu { z-index: 130; width: 240px; max-height: 340px; overflow-y: auto; padding: 6px; }
+  .md-menu .pop-item { margin: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; }
+  .md-menu .pop-item.active { background: var(--subtle-hover); }
+  .md-menu .mh { font: 12px Consolas, monospace; color: var(--muted); }
+  .md-menu.md-help { width: 330px; padding: 12px; }
+  .md-help table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .md-help td { padding: 4px 4px; vertical-align: top; }
+  .md-help td:first-child { white-space: nowrap; color: var(--text-strong); }
+  .md-help code, .md-help kbd {
+    background: #a6c5e229; border-radius: 3px; padding: 1px 5px; font: 12px Consolas, monospace; color: var(--text-strong);
+  }
+
+  /* ---------- Import ---------- */
+  .import-confirm { margin-top: 14px; padding: 12px 14px; border-radius: 8px; background: var(--subtle); box-shadow: inset 0 0 0 1px var(--border); }
+  .import-confirm b { color: var(--text-strong); }
+  .import-confirm .row { display: flex; gap: 8px; margin-top: 12px; }
+  .result .r-desc { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---------- Dashboard (Ctrl+Alt+Shift+L) ---------- */
+  .dash { flex: 1; overflow-y: auto; padding: 20px 24px 32px; }
+  .dash-wrap { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; }
+  .dash-head { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .dash-head h2 { margin: 0; font-size: 20px; color: var(--text-strong); }
+  .dash-head .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .kpi { grid-column: span 3; background: var(--surface); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow-card); }
+  .kpi b { display: block; font-size: 28px; line-height: 34px; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+  .kpi span { font-size: 12px; color: var(--muted); }
+  .panel { grid-column: span 6; min-width: 0; background: var(--surface); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-card); }
+  .panel.wide { grid-column: 1 / -1; }
+  .panel h3 { margin: 0 0 12px; font-size: 14px; color: var(--text-strong); }
+  .panel h3 small { font-weight: 400; font-size: 12px; color: var(--muted); margin-left: 6px; }
+  .panel .none { color: var(--muted); font-size: 13px; }
+  .hbar { display: grid; grid-template-columns: minmax(0, 170px) 1fr 44px; align-items: center; gap: 10px; font-size: 12px; padding: 3px 0; }
+  .hbar .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hbar .track { height: 14px; display: flex; border-radius: 3px; overflow: hidden; }
+  .hbar .seg { height: 100%; min-width: 2px; }
+  .hbar .seg + .seg { border-left: 2px solid var(--surface); }
+  .hbar .seg:hover { filter: brightness(1.25); }
+  .hbar .n { text-align: right; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .vbars { display: flex; gap: 3px; height: 140px; }
+  .vbars .vc { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .vbars .area { flex: 1; display: flex; align-items: flex-end; }
+  .vbars .col { width: 100%; background: var(--primary); border-radius: 3px 3px 0 0; }
+  .vbars .vc:hover .col { background: var(--primary-hover); }
+  .vbars .vc > span { height: 16px; margin-top: 4px; font-size: 11px; color: var(--muted); text-align: center; white-space: nowrap; overflow: visible; }
+  .heat-months, .heat { display: grid; grid-template-columns: 28px repeat(53, minmax(0, 1fr)); gap: 3px; }
+  .heat-months span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: visible; }
+  .heat { grid-template-rows: repeat(7, auto); grid-auto-flow: column; margin-top: 4px; }
+  .heat .d { font-size: 11px; color: var(--muted); line-height: 1; align-self: center; }
+  .heat .c { aspect-ratio: 1; border-radius: 2px; background: var(--subtle); }
+  .heat .c.f { background: transparent; }
+  .heat .c:not(.f):hover { outline: 1px solid var(--text-strong); }
+  .old-list { list-style: none; margin: 0; padding: 0; }
+  .old-list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+  .old-list li:hover { background: var(--subtle-hover); }
+  .old-list .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .old-list .t b { font-weight: 400; color: var(--text-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .old-list .t span { font-size: 12px; color: var(--muted); }
+  .old-list .age { font-size: 12px; color: var(--text-strong); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .words { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: baseline; }
+  .words button { padding: 2px 8px; border-radius: 6px; background: var(--subtle); color: var(--text-strong); line-height: 1.3; }
+  .words button:hover { background: var(--subtle-hover); }
+  .words button small { font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .archive { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+  .archive label { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--subtle); color: var(--text); cursor: pointer; }
+  .archive label:hover { background: var(--subtle-hover); }
+  .archive input { margin: 0; accent-color: var(--primary); }
+  @media (max-width: 860px) {
+    .dash { padding: 16px; }
+    .kpi { grid-column: span 6; }
+    .panel { grid-column: 1 / -1; }
+    .heat-months, .heat { grid-template-columns: 22px repeat(53, 10px); }
+    .heat-wrap { overflow-x: auto; }
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #a6c5e233; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a6c5e24d; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">Commandocentrum</div>
+  <div class="search">
+    <input id="search" type="text" placeholder="Zoek kaarten…  ( / )" autocomplete="off">
+    <svg viewBox="0 0 24 24"><path d="M10 2a8 8 0 0 1 6.32 12.9l5.39 5.4-1.41 1.4-5.4-5.39A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>
+    <div id="results" class="results hidden"></div>
+  </div>
+  <button id="dbstatus" class="dbstatus" title="Databestand wijzigen">
+    <span id="dot" class="dot"></span><span id="dbname">Geen bestand</span>
+  </button>
+</header>
+
+<main id="board" class="board"></main>
+<main id="dash" class="dash hidden"></main>
+
+<div id="pop" class="pop hidden"></div>
+<div id="ctx" class="pop ctx hidden"></div>
+
+<div id="cardModal" class="overlay hidden">
+  <div class="dialog card-dialog">
+    <button class="icon-btn close" data-modal="close" title="Sluiten">✕</button>
+    <textarea id="cardText" rows="1" placeholder="Titel van de kaart"></textarea>
+    <div class="meta" id="cardMeta"></div>
+
+    <div class="sec-head">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M4 5h16v2H4zm0 4h16v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></svg>
+      <h3>Beschrijving</h3>
+      <button class="btn small hidden" id="descEditBtn" data-modal="desc-edit">Bewerken</button>
+    </div>
+    <div id="descView" class="desc-empty"></div>
+    <div id="descEditor" class="md-editor hidden">
+      <div class="md-toolbar" id="mdToolbar">
+        <button class="tb" data-menu="text" title="Tekststijl">Tt<span class="caret">▾</span></button>
+        <span class="tb-sep"></span>
+        <button class="tb" data-cmd="bold" title="Vet (Ctrl+B)"><b>B</b></button>
+        <button class="tb" data-cmd="italic" title="Cursief (Ctrl+I)"><i style="font-family:Georgia,serif">I</i></button>
+        <button class="tb" data-menu="more" title="Meer opmaak">⋯</button>
+        <span class="tb-sep"></span>
+        <button class="tb" data-menu="list" title="Lijsten"><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="4.5" cy="6" r="1.6" fill="currentColor"/><circle cx="4.5" cy="12" r="1.6" fill="currentColor"/><circle cx="4.5" cy="18" r="1.6" fill="currentColor"/><path fill="currentColor" d="M8 5h13v2H8zm0 6h13v2H8zm0 6h13v2H8z"/></svg><span class="caret">▾</span></button>
+        <span class="tb-sep"></span>
+        <button class="tb" data-cmd="link" title="Link"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg></button>
+        <button class="tb" data-cmd="image" title="Afbeelding (URL)"><svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M4 18l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
+        <button class="tb" data-menu="insert" title="Invoegen"><span style="font-size:20px;line-height:1">+</span><span class="caret">▾</span></button>
+        <span class="tb-spacer"></span>
+        <button class="tb" data-cmd="markdown" title="Markdown-weergave"><b style="font-size:13px">M↓</b></button>
+        <button class="tb" data-cmd="help" title="Hulp bij opmaak"><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.2" fill="currentColor"/></svg></button>
+      </div>
+      <div class="md-urlbar hidden" id="mdUrlBar">
+        <input type="text" id="mdUrlInput">
+        <button class="primary" id="mdUrlGo">Invoegen</button>
+        <button class="icon-btn" id="mdUrlCancel" title="Annuleren">✕</button>
+      </div>
+      <div class="md-area md-view" id="mdArea" contenteditable="true" spellcheck="true"
+           data-ph="Maak je beschrijving nog beter. Typ '/' om content, opmaak en meer in te voegen."></div>
+      <textarea class="md-raw hidden" id="mdRaw" spellcheck="false"></textarea>
+    </div>
+    <div class="desc-actions hidden" id="descActions">
+      <button class="primary" data-modal="desc-save">Opslaan</button>
+      <button class="btn" data-modal="desc-cancel">Annuleren</button>
+    </div>
+
+    <div class="dialog-foot">
+      <button class="btn-danger" data-modal="delete">Kaart verwijderen</button>
+      <button class="primary" data-modal="close">Klaar</button>
+    </div>
+  </div>
+</div>
+<div id="mdMenu" class="pop md-menu hidden"></div>
+
+<div id="connect" class="overlay hidden">
+  <div class="dialog">
+    <button class="icon-btn close hidden" id="connectClose" title="Sluiten">✕</button>
+    <div id="connectMain">
+    <h1>Databestand</h1>
+    <div class="connect-msg" id="connectMsg"></div>
+    <div class="connect-actions">
+      <button class="primary hidden" id="btnReconnect"></button>
+      <button class="btn" id="btnOpen">📂 Bestaand databestand openen…</button>
+      <button class="btn" id="btnNew">＋ Nieuw databestand aanmaken…</button>
+      <button class="btn hidden" id="btnLocal">Doorgaan met browseropslag (zonder bestand)</button>
+      <button class="btn hidden" id="btnImport">⇪ Trello-bord importeren (.json)…</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="import-confirm hidden" id="importConfirm">
+      <div id="importMsg"></div>
+      <div class="row"><button class="primary" id="importGo">Vervangen</button><button class="btn" id="importCancel">Annuleren</button></div>
+    </div>
+    </div>
+    <div class="hidden" id="newChoice">
+      <h1>Nieuw databestand</h1>
+      <div class="connect-msg">Kies waarmee je nieuwe bord moet starten. Je kunt lijsten later altijd nog toevoegen, hernoemen of verwijderen.</div>
+      <div class="new-choice">
+        <button class="choice-card" id="btnNewEmpty">
+          <b>Leeg</b>
+          <span>Start helemaal vanaf nul, zonder lijsten.</span>
+        </button>
+        <button class="choice-card" id="btnNewTemplate">
+          <b>Met startstructuur <em class="badge">Aanbevolen</em></b>
+          <span>Ga meteen aan de slag met kant-en-klare prioriteitslijsten.</span>
+        </button>
+      </div>
+      <div class="dialog-foot"><button class="btn" id="newBack">← Terug</button></div>
+    </div>
+    <div class="connect-err" id="connectErr"></div>
+  </div>
+</div>
+
+<div id="oneDrive" class="overlay hidden">
+  <div class="dialog">
+    <div class="warn-icon"><svg viewBox="0 0 24 24" width="40" height="40"><path fill="currentColor" d="M12 2.5 1 21.5h22L12 2.5zm0 4.2 7.6 13.1H4.4L12 6.7z"/><path fill="currentColor" d="M11 10h2v5h-2zm0 6.5h2v2h-2z"/></svg></div>
+    <h1>Bewaar je databestand in OneDrive</h1>
+    <p>Sla het nieuwe databestand op in je <b>persoonlijke OneDrive</b>, niet op je lokale pc (zoals Bureaublad, Downloads,...)</p>
+    <p>Zo heb je automatisch een back-up en ben je je lijsten en kaarten niet kwijt als er iets met deze pc gebeurt.</p>
+    <div class="dialog-foot" style="gap:8px">
+      <button class="btn" id="oneDriveCancel">Annuleren</button>
+      <button class="ack-btn" id="oneDriveOk" disabled></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= Constants ================= */
+const CARD_COLORS = [
+  { key: 'green',  label: 'Groen',  hex: '#164b35' },
+  { key: 'yellow', label: 'Geel',   hex: '#533f04' },
+  { key: 'orange', label: 'Oranje', hex: '#702e00' },
+  { key: 'red',    label: 'Rood',   hex: '#5d1f1a' },
+  { key: 'purple', label: 'Paars',  hex: '#352c63' },
+];
+const LIST_COLORS = [
+  '#101204', '#1d2125', '#2c333a', '#164b35', '#533f04', '#702e00',
+  '#5d1f1a', '#352c63', '#09326c', '#164555', '#37471f', '#50253f',
+  '#1f845a', '#946f00', '#c25100', '#c9372c', '#6e5dc6', '#0c66e4',
+];
+const DEFAULT_LIST = '#101204';
+const CACHE_KEY = 'kanban-cache-v1';
+const FILE_TYPES = [{ description: 'Kanban database (JSON)', accept: { 'application/json': ['.json'] } }];
+
+/* ================= State ================= */
+let state = { version: 1, lists: [] };
+let fileHandle = null;
+let useLocalOnly = false;
+
+const $ = (s, r = document) => r.querySelector(s);
+const board = $('#board');
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDate = iso => {
+  if (!iso) return 'onbekend';
+  const d = new Date(iso);
+  return d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' }) + ' om ' +
+         d.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
+};
+function fgFor(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return '#dee4ea';
+  const n = parseInt(m[1], 16);
+  const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.58 ? '#172b4d' : '#dee4ea';
+}
+
+function defaultState() {
+  const now = new Date().toISOString();
+  return {
+    version: 1,
+    lists: [
+      { id: uid(), title: 'Te doen', color: null, cards: [{ id: uid(), text: 'Welkom! Sleep deze kaart naar een andere lijst.', desc: '', color: null, createdAt: now }] },
+      { id: uid(), title: 'Bezig', color: null, cards: [] },
+      { id: uid(), title: 'Klaar', color: null, cards: [] },
+    ],
+  };
+}
+function templateState() {
+  const L = (title, color = null, spaceAfter = 0, moveTarget = false) =>
+    ({ id: uid(), title, color, moveTarget, spaceAfter, collapsed: false, cards: [] });
+  return {
+    version: 1,
+    lists: [
+      L('Uitgesteld 💤'),
+      L('Regulier 📅'),
+      L('Dringend ⚠️', '#5e3317'),
+      L('Kritiek ❗', '#9e0b00', 3),
+      L('⏳ On hold PRIO', null, 0, true),
+      L('⏳ ⏳ ⏳ On Hold', null, 3, true),
+      L('✅ Afgehandeld', '#1f845a', 0, true),
+    ],
+  };
+}
+function normalize(s) {
+  if (!s || !Array.isArray(s.lists)) throw new Error('Ongeldig bestandsformaat');
+  s.version = 1;
+  for (const l of s.lists) {
+    l.id ||= uid(); l.title ??= 'Lijst'; l.color ??= null; l.moveTarget = !!l.moveTarget; l.spaceAfter = l.spaceAfter === true ? 1 : Math.max(0, Math.min(3, Math.round(+l.spaceAfter) || 0)); l.collapsed = !!l.collapsed;
+    l.cards = Array.isArray(l.cards) ? l.cards : [];
+    for (const c of l.cards) {
+      c.id ||= uid(); c.text ??= ''; c.desc ??= ''; c.color ??= null; c.createdAt ||= new Date().toISOString();
+      if (c.type !== 'separator') delete c.type;
+    }
+    fixLinks(l);
+  }
+  return s;
+}
+/* Linked cards: `linked: true` means "can only start after the card directly above it".
+   A chain is therefore always a contiguous run of cards within one list. */
+function fixLinks(l) {
+  l.cards.forEach((c, i) => {
+    const prev = l.cards[i - 1];
+    if (c.linked !== true || !prev || c.type === 'separator' || prev.type === 'separator') delete c.linked;
+  });
+}
+// [first, last] index of the chain that contains card i
+function chainRange(l, i) {
+  let h = i, t = i;
+  while (h > 0 && l.cards[h].linked) h--;
+  while (l.cards[t + 1]?.linked) t++;
+  return [h, t];
+}
+// Remove one card; if it headed a chain, the next card becomes the new head
+function removeCard(l, i) {
+  const [c] = l.cards.splice(i, 1);
+  if (!c.linked && l.cards[i]?.linked) delete l.cards[i].linked;
+  delete c.linked;
+  return c;
+}
+const findList = id => state.lists.find(l => l.id === id);
+function findCard(id) {
+  for (const l of state.lists) {
+    const i = l.cards.findIndex(c => c.id === id);
+    if (i > -1) return { list: l, card: l.cards[i], index: i };
+  }
+  return null;
+}
+
+/* ================= Persistence ================= */
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('kanban-handles', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(k) {
+  const db = await idb();
+  return new Promise((res, rej) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+}
+async function idbSet(k, v) {
+  const db = await idb();
+  return new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); });
+}
+
+let saveTimer = null, saving = false, dirty = false;
+function save() {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch {}
+  if (useLocalOnly) { setStatus('ok'); return; }
+  dirty = true;
+  setStatus('saving');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 150);
+}
+async function flush() {
+  if (saving || !dirty || !fileHandle) return;
+  saving = true; dirty = false;
+  try {
+    const w = await fileHandle.createWritable();
+    await w.write(JSON.stringify(state, null, 1));
+    await w.close();
+  } catch (e) {
+    dirty = true;
+    console.error(e);
+    setStatus('error');
+  }
+  saving = false;
+  if (dirty) setTimeout(flush, 500); else setStatus('ok');
+}
+window.addEventListener('beforeunload', e => { if (dirty || saving) { flush(); e.preventDefault(); e.returnValue = ''; } });
+
+function setStatus(s) {
+  const dot = $('#dot');
+  dot.className = 'dot' + (s === 'saving' ? ' saving' : s === 'error' ? ' error' : '');
+  const name = useLocalOnly ? 'Browseropslag' : fileHandle ? fileHandle.name : 'Geen bestand';
+  $('#dbname').textContent = s === 'error' ? name + ' — opslaan mislukt' : name;
+  $('#dbstatus').title = s === 'saving' ? 'Opslaan…' : s === 'error' ? 'Opslaan mislukt – klik om opnieuw te verbinden' : 'Opgeslagen · klik om databestand te wijzigen';
+}
+
+async function loadFromHandle(h) {
+  const file = await h.getFile();
+  const txt = await file.text();
+  let data;
+  if (!txt.trim()) data = defaultState();
+  else data = normalize(JSON.parse(txt));
+  fileHandle = h; useLocalOnly = false;
+  state = data;
+  await idbSet('handle', h);
+  if (!txt.trim()) { dirty = true; await flush(); }
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch {}
+  render();
+  setStatus('ok');
+  hideConnect();
+}
+
+/* ================= Connect dialog ================= */
+const connect = $('#connect');
+// Trello import is hidden; Ctrl+Alt+Shift+K reveals it in the connect dialog.
+let importAllowed = false;
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.altKey && e.shiftKey && e.code === 'KeyK' && importAllowed && !connect.classList.contains('hidden')) {
+    e.preventDefault();
+    $('#btnImport').classList.remove('hidden');
+  }
+});
+function showConnect(mode) {
+  $('#connectErr').textContent = '';
+  const rc = $('#btnReconnect');
+  rc.classList.add('hidden');
+  $('#btnLocal').classList.add('hidden');
+  $('#importConfirm').classList.add('hidden'); pendingImport = null;
+  importAllowed = !!((fileHandle && mode === 'switch') || useLocalOnly);
+  $('#btnImport').classList.add('hidden');
+  showNewChoice(false);
+  $('#connectClose').classList.toggle('hidden', !(fileHandle && mode === 'switch') && !useLocalOnly);
+  const supported = 'showOpenFilePicker' in window;
+  $('#btnOpen').classList.toggle('hidden', !supported);
+  $('#btnNew').classList.toggle('hidden', !supported);
+  let msg = '';
+  if (!supported) {
+    msg = 'Deze browser kan niet rechtstreeks naar een bestand op je pc schrijven. Open deze pagina in Chrome of Edge om met een databestand te werken.';
+    $('#btnLocal').classList.remove('hidden');
+  } else if (mode === 'reconnect') {
+    msg = 'Geef toestemming om verder te werken in je databestand.';
+    rc.innerHTML = '🔗 Verbinden met <b>' + esc(fileHandle.name) + '</b>';
+    rc.classList.remove('hidden');
+  } else if (mode === 'switch') {
+    msg = 'Huidig bestand: <b>' + esc(fileHandle ? fileHandle.name : '—') + '</b>. Kies een ander databestand of maak een nieuw aan.';
+  } else {
+    msg = 'Alle lijsten en kaarten worden bewaard in één .json-bestand op je pc. Maak een nieuw bestand aan of open een bestaand bestand.';
+  }
+  $('#connectMsg').innerHTML = msg;
+  connect.classList.remove('hidden');
+  (rc.classList.contains('hidden') ? $('#btnOpen') : rc).focus();
+}
+function hideConnect() { connect.classList.add('hidden'); }
+
+$('#btnReconnect').onclick = async () => {
+  try {
+    if (await fileHandle.requestPermission({ mode: 'readwrite' }) === 'granted') await loadFromHandle(fileHandle);
+    else $('#connectErr').textContent = 'Toestemming geweigerd.';
+  } catch (e) { $('#connectErr').textContent = 'Kon het bestand niet openen: ' + e.message; }
+};
+$('#btnOpen').onclick = async () => {
+  try {
+    const [h] = await showOpenFilePicker({ types: FILE_TYPES, multiple: false });
+    if (await h.requestPermission({ mode: 'readwrite' }) !== 'granted') { $('#connectErr').textContent = 'Schrijftoestemming geweigerd.'; return; }
+    await loadFromHandle(h);
+  } catch (e) { if (e.name !== 'AbortError') $('#connectErr').textContent = 'Kon het bestand niet openen: ' + e.message; }
+};
+async function createDbFile(content) {
+  try {
+    const h = await showSaveFilePicker({ suggestedName: 'kanban-db.json', types: FILE_TYPES });
+    const w = await h.createWritable(); await w.write(content); await w.close();
+    await loadFromHandle(h);
+  } catch (e) { if (e.name !== 'AbortError') $('#connectErr').textContent = 'Kon het bestand niet aanmaken: ' + e.message; }
+}
+// OneDrive reminder: the confirm button unlocks after ACK_DELAY ms. The save picker is
+// opened from that click, since it needs a fresh user gesture.
+const ACK_DELAY = 9000;
+let oneDriveNext = null, oneDriveTimer = null;
+function askOneDrive(next) {
+  const ok = $('#oneDriveOk');
+  oneDriveNext = next;
+  ok.disabled = true; ok.classList.remove('ready');
+  $('#oneDrive').classList.remove('hidden');
+  let left = ACK_DELAY / 1000;
+  const tick = () => {
+    if (left > 0) { ok.textContent = `Oké, ik begrijp het (${left--})`; return; }
+    clearInterval(oneDriveTimer);
+    ok.textContent = 'Oké, ik begrijp het';
+    ok.disabled = false; ok.classList.add('ready'); ok.focus();
+  };
+  clearInterval(oneDriveTimer);
+  tick();
+  oneDriveTimer = setInterval(tick, 1000);
+}
+function closeOneDrive() { clearInterval(oneDriveTimer); $('#oneDrive').classList.add('hidden'); oneDriveNext = null; }
+$('#oneDriveCancel').onclick = closeOneDrive;
+$('#oneDriveOk').onclick = () => { const next = oneDriveNext; closeOneDrive(); if (next) next(); };
+function showNewChoice(on) {
+  $('#connectMain').classList.toggle('hidden', on);
+  $('#newChoice').classList.toggle('hidden', !on);
+  $('#connectErr').textContent = '';
+}
+$('#btnNew').onclick = () => { showNewChoice(true); $('#btnNewEmpty').focus(); };
+$('#newBack').onclick = () => { showNewChoice(false); $('#btnNew').focus(); };
+$('#btnNewEmpty').onclick = () => askOneDrive(() => createDbFile(JSON.stringify({ version: 1, lists: [] }, null, 2)));
+$('#btnNewTemplate').onclick = () => askOneDrive(() => createDbFile(JSON.stringify(templateState(), null, 2)));
+$('#btnLocal').onclick = () => { useLocalOnly = true; if (!state.lists.length) state = defaultState(); render(); save(); hideConnect(); };
+$('#connectClose').onclick = hideConnect;
+$('#dbstatus').onclick = async () => {
+  if (fileHandle && !useLocalOnly) {
+    const p = await fileHandle.queryPermission({ mode: 'readwrite' });
+    showConnect(p === 'granted' ? 'switch' : 'reconnect');
+  } else showConnect('first');
+};
+
+/* ================= Trello import ================= */
+const TRELLO_LIST_COLORS = {
+  green: '#164b35', yellow: '#533f04', orange: '#702e00', red: '#5d1f1a', purple: '#352c63',
+  blue: '#09326c', sky: '#164555', lime: '#37471f', pink: '#50253f', black: '#2c333a',
+};
+function convertTrello(d) {
+  if (!d || !Array.isArray(d.lists) || !Array.isArray(d.cards)) throw new Error('Dit is geen Trello-export (lists/cards ontbreken).');
+  const byPos = (a, b) => (a.pos ?? 0) - (b.pos ?? 0);
+  const colorKeys = new Set(CARD_COLORS.map(c => c.key));
+  const lists = d.lists.filter(l => !l.closed).sort(byPos)
+    .map(l => ({ id: uid(), title: l.name || 'Lijst', color: TRELLO_LIST_COLORS[l.color] || null, moveTarget: false, cards: [], _tid: l.id }));
+  const byTid = new Map(lists.map(l => [l._tid, l]));
+  const checklists = new Map();
+  for (const cl of d.checklists || []) {
+    if (!checklists.has(cl.idCard)) checklists.set(cl.idCard, []);
+    checklists.get(cl.idCard).push(cl);
+  }
+  for (const c of d.cards.filter(c => !c.closed).sort(byPos)) {
+    const l = byTid.get(c.idList);
+    if (!l) continue; // card sits in an archived list
+    // A Trello id starts with the creation time in seconds (hex)
+    let created = new Date(parseInt(String(c.id).slice(0, 8), 16) * 1000);
+    if (isNaN(created)) created = new Date(c.dateLastActivity || Date.now());
+    const createdAt = created.toISOString();
+    if (c.cardRole === 'separator') { l.cards.push({ id: uid(), type: 'separator', text: '', desc: '', color: null, createdAt }); continue; }
+    const extra = [];
+    for (const cl of (checklists.get(c.id) || []).sort(byPos)) {
+      extra.push(`**${cl.name}**\n` + [...(cl.checkItems || [])].sort(byPos)
+        .map(it => `- [${it.state === 'complete' ? 'x' : ' '}] ${it.name}`).join('\n'));
+    }
+    const atts = (c.attachments || []).filter(a => a.url).map(a => `📎 [${String(a.name || 'bijlage').replace(/[[\]]/g, '')}](${a.url})`);
+    if (atts.length) extra.push(atts.join('\n'));
+    let desc = (c.desc || '').replace(/\s+$/, '');
+    if (extra.length) desc = (desc ? desc + '\n\n' : '') + extra.join('\n\n');
+    l.cards.push({ id: uid(), text: c.name || '', desc, color: colorKeys.has(c.cover?.color) ? c.cover.color : null, createdAt });
+  }
+  lists.forEach(l => delete l._tid);
+  return { version: 1, lists };
+}
+const cardCount = s => s.lists.reduce((n, l) => n + l.cards.filter(c => c.type !== 'separator').length, 0);
+let pendingImport = null;
+$('#btnImport').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  $('#connectErr').textContent = '';
+  try {
+    const d = JSON.parse(await file.text());
+    pendingImport = convertTrello(d);
+    $('#importMsg').innerHTML = `Bord <b>${esc(d.name || file.name)}</b>: <b>${pendingImport.lists.length}</b> lijsten en <b>${cardCount(pendingImport)}</b> kaarten gevonden.<br>
+      Je huidige bord (${state.lists.length} lijsten, ${cardCount(state)} kaarten) wordt <b>vervangen</b>.`;
+    $('#importConfirm').classList.remove('hidden');
+    $('#importGo').focus();
+  } catch (err) {
+    pendingImport = null;
+    $('#connectErr').textContent = 'Importeren mislukt: ' + err.message;
+  }
+};
+$('#importGo').onclick = () => {
+  if (!pendingImport) return;
+  try { localStorage.setItem('kanban-backup-before-import', JSON.stringify(state)); } catch {}
+  state = normalize(pendingImport);
+  pendingImport = null;
+  $('#importConfirm').classList.add('hidden');
+  render();
+  save();
+  hideConnect();
+};
+$('#importCancel').onclick = () => { pendingImport = null; $('#importConfirm').classList.add('hidden'); };
+
+/* ================= Rendering ================= */
+const DESC_ICON = '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 5h16v2H4zm0 4h16v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></svg>';
+function cardHTML(c) {
+  if (c.type === 'separator') return `<article class="card sep" draggable="true" data-card="${c.id}" title="Scheidingslijn"></article>`;
+  return `<article class="card${c.linked ? ' linked' : ''}" draggable="true" data-card="${c.id}"${c.color ? ` data-color="${c.color}"` : ''}><div class="card-text">${esc(c.text)}</div>${
+    c.desc && c.desc.trim() ? `<div class="card-badges"><span title="Deze kaart heeft een beschrijving">${DESC_ICON}</span></div>` : ''}</article>`;
+}
+board.addEventListener('mouseover', e => {
+  const el = e.target.closest?.('.card');
+  if (!el || el.title) return;
+  const f = findCard(el.dataset.card);
+  if (f) el.title = 'Aangemaakt op ' + fmtDate(f.card.createdAt);
+});
+// Cards with a hover zone between each pair: clicking it inserts a card at that position
+const cardGap = at => `<div class="card-gap" data-act="gap-card" data-at="${at}" title="Kaart hier invoegen"></div>`;
+// Between linked cards: a connector line instead; clicking it cuts the link to the card above
+const cardLink = id => `<div class="card-link" data-act="unlink" data-card="${id}" title="Klik om te ontkoppelen"></div>`;
+const cardsHTML = l => l.cards.map((c, i) => (i ? (c.linked ? cardLink(c.id) : cardGap(i)) : '') + cardHTML(c)).join('');
+const SEARCH_ICON = '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M10 2a8 8 0 0 1 6.32 12.9l5.39 5.4-1.41 1.4-5.4-5.39A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>';
+const COLLAPSE_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l6 6-6 6M20 6l-6 6 6 6"/></svg>';
+function listHTML(l) {
+  const style = l.color ? ` style="--list-bg:${l.color};--list-fg:${fgFor(l.color)}"` : '';
+  return `<section class="list${l.spaceAfter ? ` space-${l.spaceAfter}` : ''}${l.collapsed ? ' collapsed' : ''}" data-list="${l.id}"${style}>
+    <header class="list-head" draggable="true">
+      <h2 class="list-title" data-act="edit-title">${esc(l.title)}</h2>
+      <span class="count" title="Aantal kaarten">${l.cards.length}</span>
+      <button class="icon-btn" data-act="list-collapse" title="Lijst inklappen">${COLLAPSE_ICON}</button>
+      <button class="icon-btn" data-act="list-search" title="Zoeken in deze lijst">${SEARCH_ICON}</button>
+      <button class="icon-btn" data-act="list-menu" title="Lijstacties">⋯</button>
+    </header>
+    <div class="cards">${cardsHTML(l)}</div>
+    <div class="list-foot">${FOOT_BTN}</div>
+  </section>`;
+}
+const FOOT_BTN = '<button class="add-card" data-act="open-composer">+ Een kaart toevoegen</button>';
+const ADD_LIST_BTN = '<button data-act="open-list-composer">+ Nog een lijst toevoegen</button>';
+
+function render() {
+  composerList = null; listComposerOpen = false; gapComp = null; listFilter = null;
+  board.innerHTML = state.lists.map(listHTML).join('') +
+    `<div class="add-list" id="addList">${ADD_LIST_BTN}</div>`;
+}
+// Re-render only the cards of one list (keeps scroll position and any active list filter)
+function renderCards(listId) {
+  const el = listEl(listId), l = findList(listId);
+  if (!el || !l) return;
+  const cont = el.querySelector('.cards'), top = cont.scrollTop;
+  cont.innerHTML = cardsHTML(l);
+  cont.scrollTop = top;
+  if (gapComp && gapComp.listId === listId) gapComp = null;
+  if (listFilter && listFilter.listId === listId) applyListFilter();
+  else updateCount(listId);
+}
+const listEl = id => board.querySelector(`.list[data-list="${id}"]`);
+function updateCount(listId) {
+  const el = listEl(listId), l = findList(listId);
+  if (el && l) el.querySelector('.count').textContent = l.cards.length;
+}
+// Collapsed list: a narrow vertical strip with title + count; cards can still be dropped onto it
+function setCollapsed(listId, collapsed) {
+  const l = findList(listId), el = listEl(listId);
+  if (!l || !el) return;
+  if (collapsed) {
+    closeComposers(true);
+    if (listFilter?.listId === listId) closeListSearch();
+  }
+  l.collapsed = collapsed;
+  el.classList.toggle('collapsed', collapsed);
+  save();
+}
+function closeComposers(commit) {
+  closeComposer(commit);
+  closeListComposer(commit);
+  closeGap(commit);
+}
+
+/* ================= Card composer (bottom of list) ================= */
+let composerList = null;
+function openComposer(listId) {
+  closeComposers(true);
+  const el = listEl(listId); if (!el) return;
+  el.querySelector('.list-foot').innerHTML = `<div class="composer">
+    <textarea rows="3" placeholder="Voer een titel of inhoud in voor deze kaart…"></textarea>
+    <div class="row"><button class="primary" data-act="composer-add">Kaart toevoegen</button>
+    <button class="icon-btn" data-act="composer-close" title="Annuleren">✕</button></div></div>`;
+  composerList = listId;
+  el.querySelector('.composer textarea').focus();
+  const cards = el.querySelector('.cards'); cards.scrollTop = cards.scrollHeight;
+}
+function composerSubmit() {
+  const el = listEl(composerList); if (!el) return;
+  const ta = el.querySelector('.list-foot textarea');
+  const text = ta.value.trim();
+  if (text) addCard(composerList, text);
+  ta.value = ''; ta.focus();
+}
+function closeComposer(commit) {
+  if (!composerList) return;
+  const el = listEl(composerList);
+  if (el) {
+    const ta = el.querySelector('.list-foot textarea');
+    if (commit && ta && ta.value.trim()) addCard(composerList, ta.value.trim());
+    el.querySelector('.list-foot').innerHTML = FOOT_BTN;
+  }
+  composerList = null;
+}
+function newCard(text) { return { id: uid(), text, desc: '', color: null, createdAt: new Date().toISOString() }; }
+function addCard(listId, text, at) {
+  const l = findList(listId); if (!l) return;
+  if (at == null) at = l.cards.length;
+  l.cards.splice(at, 0, newCard(text));
+  renderCards(listId);
+  if (at === l.cards.length - 1) { const c = listEl(listId).querySelector('.cards'); c.scrollTop = c.scrollHeight; }
+  save();
+}
+
+/* ================= List composer (end of board) ================= */
+let listComposerOpen = false;
+function openListComposer() {
+  closeComposers(true);
+  const box = $('#addList');
+  box.classList.add('open');
+  box.innerHTML = `<div class="composer"><input type="text" placeholder="Voer lijstnaam in…">
+    <div class="row"><button class="primary" data-act="list-composer-add">Lijst toevoegen</button>
+    <button class="icon-btn" data-act="list-composer-close" title="Annuleren">✕</button></div></div>`;
+  listComposerOpen = true;
+  box.querySelector('input').focus();
+  board.scrollLeft = board.scrollWidth;
+}
+function listComposerSubmit() {
+  const title = $('#addList input')?.value.trim();
+  if (title) { addList(title); openListComposer(); }
+  else $('#addList input')?.focus();
+}
+function closeListComposer(commit) {
+  if (!listComposerOpen) return;
+  const box = $('#addList');
+  const input = box.querySelector('input');
+  listComposerOpen = false;
+  if (commit && input && input.value.trim()) return addList(input.value.trim());
+  box.classList.remove('open');
+  box.innerHTML = ADD_LIST_BTN;
+}
+function addList(title, at) {
+  const l = { id: uid(), title, color: null, cards: [] };
+  if (at == null) at = state.lists.length;
+  state.lists.splice(at, 0, l);
+  const x = board.scrollLeft;
+  render();
+  board.scrollLeft = at === state.lists.length - 1 ? board.scrollWidth : x;
+  save();
+}
+
+/* ================= Insert between cards ================= */
+let gapComp = null; // { listId, at, el }
+function openGap(gapEl) {
+  const at = +gapEl.dataset.at;
+  const listId = gapEl.closest('.list').dataset.list;
+  closeComposers(true);
+  // closing another composer may have re-rendered: find the gap again
+  openGapAt(listId, at);
+}
+function openGapAt(listId, at) {
+  const el = listEl(listId)?.querySelector(`.card-gap[data-at="${at}"]`);
+  if (!el) return;
+  const box = document.createElement('div');
+  box.className = 'composer gap-composer';
+  box.innerHTML = `<textarea rows="2" placeholder="Kaart op deze plek invoegen…"></textarea>
+    <div class="row"><button class="primary" data-act="gap-add">Kaart invoegen</button>
+    <button class="icon-btn" data-act="gap-close" title="Annuleren">✕</button></div>`;
+  el.replaceWith(box);
+  gapComp = { listId, at, el: box };
+  box.querySelector('textarea').focus();
+  box.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+function gapSubmit() {
+  if (!gapComp) return;
+  const { listId, at, el } = gapComp;
+  const text = el.querySelector('textarea').value.trim();
+  if (!text) return el.querySelector('textarea').focus();
+  gapComp = null;
+  addCard(listId, text, at);
+  openGapAt(listId, at + 1); // keep typing: next insert goes right after the new one
+}
+function closeGap(commit) {
+  if (!gapComp) return;
+  const { listId, at, el } = gapComp;
+  const text = el.querySelector('textarea').value.trim();
+  gapComp = null;
+  if (commit && text) return addCard(listId, text, at);
+  el.outerHTML = cardGap(at);
+}
+
+/* ================= Search within one list ================= */
+let listFilter = null; // { listId, el }
+function openListSearch(listId) {
+  if (listFilter && listFilter.listId === listId) { listFilter.el.querySelector('input').focus(); return; }
+  closeListSearch();
+  closeComposers(true);
+  const el = listEl(listId); if (!el) return;
+  const box = document.createElement('div');
+  box.className = 'list-search';
+  box.innerHTML = `${SEARCH_ICON}<input type="text" placeholder="Zoek in deze lijst…">
+    <button class="icon-btn" data-act="list-search-close" title="Sluiten">✕</button>`;
+  el.querySelector('.list-head').after(box);
+  el.classList.add('filtering');
+  listFilter = { listId, el: box };
+  box.querySelector('input').focus();
+}
+function applyListFilter() {
+  if (!listFilter) return;
+  const el = listEl(listFilter.listId), l = findList(listFilter.listId);
+  if (!el || !l) return;
+  const q = listFilter.el.querySelector('input').value.trim().toLowerCase(), words = searchWords(q);
+  const byId = new Map(l.cards.map(c => [c.id, c]));
+  let n = 0;
+  for (const c of el.querySelectorAll('.card')) {
+    const cd = byId.get(c.dataset.card);
+    const hit = !q || (cd && (hasAllWords(cd.text, words) || hasAllWords(cd.desc, words)));
+    c.classList.toggle('filtered-out', !hit);
+    if (hit) n++;
+  }
+  el.querySelector('.count').textContent = q ? `${n}/${l.cards.length}` : l.cards.length;
+  let empty = el.querySelector('.list-empty');
+  if (q && !n) {
+    if (!empty) el.querySelector('.cards').insertAdjacentHTML('beforeend', '<div class="list-empty">Geen kaarten gevonden</div>');
+  } else empty?.remove();
+}
+function closeListSearch() {
+  if (!listFilter) return;
+  const el = listEl(listFilter.listId);
+  listFilter.el.remove();
+  if (el) {
+    el.classList.remove('filtering');
+    el.querySelectorAll('.filtered-out').forEach(c => c.classList.remove('filtered-out'));
+    el.querySelector('.list-empty')?.remove();
+  }
+  const id = listFilter.listId;
+  listFilter = null;
+  updateCount(id);
+}
+/* ================= Title editing ================= */
+function editTitle(h2) {
+  const listId = h2.closest('.list').dataset.list;
+  const l = findList(listId);
+  const input = document.createElement('input');
+  input.className = 'title-input';
+  input.value = l.title;
+  h2.replaceWith(input);
+  input.focus(); input.select();
+  let done = false;
+  const finish = commit => {
+    if (done) return; done = true;
+    const v = input.value.trim();
+    if (commit && v && v !== l.title) { l.title = v; save(); }
+    const nh = document.createElement('h2');
+    nh.className = 'list-title'; nh.dataset.act = 'edit-title'; nh.textContent = l.title;
+    input.replaceWith(nh);
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+/* ================= Board events ================= */
+board.addEventListener('click', e => {
+  const col = e.target.closest('.list.collapsed');
+  if (col) return setCollapsed(col.dataset.list, false); // click anywhere on a collapsed list expands it
+  const act = e.target.closest('[data-act]');
+  if (act) {
+    const listId = act.closest('.list')?.dataset.list;
+    switch (act.dataset.act) {
+      case 'edit-title': return editTitle(act);
+      case 'list-menu': return openListMenu(listId, act);
+      case 'list-collapse': return setCollapsed(listId, true);
+      case 'list-search': return openListSearch(listId);
+      case 'list-search-close': return closeListSearch();
+      case 'open-composer': return openComposer(listId);
+      case 'composer-add': return composerSubmit();
+      case 'composer-close': return closeComposer(false);
+      case 'open-list-composer': return openListComposer();
+      case 'list-composer-add': return listComposerSubmit();
+      case 'list-composer-close': return closeListComposer(false);
+      case 'gap-card': return openGap(act);
+      case 'unlink': return unlinkCard(act.dataset.card);
+      case 'gap-add': return gapSubmit();
+      case 'gap-close': return closeGap(false);
+    }
+  }
+  const card = e.target.closest('.card');
+  if (!card) return;
+  // In a filtered list, clicking a match shows where it sits in the full list
+  if (card.closest('.list.filtering')) { closeListSearch(); focusCard(card.dataset.card); }
+  else if (!card.classList.contains('sep')) openCard(card.dataset.card);
+});
+board.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t.closest('.gap-composer')) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); gapSubmit(); }
+    else if (e.key === 'Escape') closeGap(false);
+  } else if (t.matches('.list-foot textarea')) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); composerSubmit(); }
+    else if (e.key === 'Escape') closeComposer(false);
+  } else if (t.matches('#addList input')) {
+    if (e.key === 'Enter') { e.preventDefault(); listComposerSubmit(); }
+    else if (e.key === 'Escape') closeListComposer(false);
+  } else if (t.matches('.list-search input')) {
+    if (e.key === 'Escape') { e.stopPropagation(); closeListSearch(); }
+    else if (e.key === 'Enter') {
+      const first = t.closest('.list').querySelector('.card:not(.filtered-out)');
+      if (first && t.value.trim()) { closeListSearch(); focusCard(first.dataset.card); }
+    }
+  }
+});
+board.addEventListener('input', e => { if (e.target.matches('.list-search input')) applyListFilter(); });
+document.addEventListener('mousedown', e => {
+  if (composerList && !e.target.closest('.list-foot .composer')) closeComposer(true);
+  if (listComposerOpen && !e.target.closest('#addList')) closeListComposer(true);
+  if (gapComp && !e.target.closest('.gap-composer')) closeGap(true);
+  if (!pop.classList.contains('hidden') && !e.target.closest('#pop') && !e.target.closest('[data-act="list-menu"]')) closePop();
+  if (!e.target.closest('.search')) hideResults();
+});
+
+/* ================= Drag to scroll the board horizontally ================= */
+// Left button on the empty board background, or right button anywhere on the board
+let pan = null, panSuppressMenu = false;
+board.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'mouse') return;
+  const onBackground = e.target === board;
+  if (!(e.button === 2 || (e.button === 0 && onBackground))) return;
+  // No preventDefault here: the normal mousedown must still happen (it blurs and closes open composers)
+  pan ={ id: e.pointerId, button: e.button, x: e.clientX, left: board.scrollLeft, moved: false };
+  panSuppressMenu = false;
+});
+board.addEventListener('pointermove', e => {
+  if (!pan || e.pointerId !== pan.id) return;
+  const dx = e.clientX - pan.x;
+  if (!pan.moved) {
+    if (Math.abs(dx) < 4) return;
+    pan.moved = true;
+    board.setPointerCapture(e.pointerId);
+    document.body.classList.add('panning');
+  }
+  board.scrollLeft = pan.left - dx;
+});
+function endPan() {
+  if (!pan) return;
+  if (pan.moved && pan.button === 2) panSuppressMenu = true; // the right button release fires contextmenu right after
+  pan = null;
+  document.body.classList.remove('panning');
+}
+document.addEventListener('selectstart', e => { if (pan) e.preventDefault(); }); // no text selection while panning
+board.addEventListener('pointerup', endPan);
+board.addEventListener('pointercancel', endPan);
+board.addEventListener('lostpointercapture', endPan);
+// After a right-drag, swallow the context menu (ours and the browser's)
+window.addEventListener('contextmenu', e => {
+  if (!panSuppressMenu) return;
+  panSuppressMenu = false;
+  e.preventDefault(); e.stopPropagation();
+}, true);
+
+/* ================= Drag & drop ================= */
+let drag = null;
+const ph = document.createElement('div');
+ph.className = 'card-ph';
+
+board.addEventListener('dragstart', e => {
+  const card = e.target.closest?.('.card');
+  if (!card) return;
+  closeComposers(true); closePop();
+  // Dragging any card of a linked chain moves the whole chain
+  const f = findCard(card.dataset.card);
+  const [h, t] = f ? chainRange(f.list, f.index) : [0, -1];
+  const els = f ? f.list.cards.slice(h, t + 1).flatMap((c, i) => [
+    i ? board.querySelector(`.card-link[data-card="${c.id}"]`) : null,
+    board.querySelector(`.card[data-card="${c.id}"]`),
+  ]).filter(Boolean) : [card];
+  drag = { id: card.dataset.card, el: card, els, sep: card.classList.contains('sep'), link: null, hover: null, drop: null };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', drag.id);
+  ph.style.height = els.reduce((n, el) => n + el.offsetHeight, 0) + 'px';
+  if (els.length > 1) {
+    // Show the whole chain under the cursor, not just the grabbed card
+    const ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.style.width = els[0].offsetWidth + 'px';
+    for (const el of els) ghost.appendChild(el.cloneNode(true));
+    document.body.appendChild(ghost);
+    const r = els[0].getBoundingClientRect(); // the chain's top card: full width, not indented
+    e.dataTransfer.setDragImage(ghost, e.clientX - r.left, e.clientY - r.top);
+    setTimeout(() => ghost.remove());
+  }
+  // Layout changes must wait a frame, otherwise Chrome cancels the drag
+  requestAnimationFrame(() => {
+    if (!drag) return;
+    closeListSearch();
+    document.body.classList.add('dnd');
+    for (const el of els) el.classList.add('dragging');
+    if (!ph.parentNode) els[els.length - 1].after(ph);
+  });
+});
+// The card under the cursor shows a small "link here" square (drawn by CSS on .link-hover)
+function setLinkHover(hover, link) {
+  if (drag.hover !== hover) {
+    drag.hover?.classList.remove('link-hover');
+    hover?.classList.add('link-hover');
+    drag.hover = hover;
+  }
+  if (drag.link !== link) {
+    drag.link?.classList.remove('link-target');
+    link?.classList.add('link-target');
+    ph.classList.toggle('link', !!link); // keeps its space but hides, so nothing shifts under the cursor
+    drag.link = link;
+  }
+}
+function setDropList(el) {
+  if (drag.drop === el) return;
+  drag.drop?.classList.remove('drop-target');
+  el?.classList.add('drop-target');
+  drag.drop = el;
+}
+const LINK_ZONE = 28, LINK_ZONE_INSET = 6; // must match .card.link-hover::after
+function inLinkZone(card, x, y) {
+  const r = card.getBoundingClientRect(), pad = 3;
+  const right = r.right - LINK_ZONE_INSET, cy = r.top + r.height / 2;
+  return x >= right - LINK_ZONE - pad && x <= right + pad && Math.abs(y - cy) <= LINK_ZONE / 2 + pad;
+}
+board.addEventListener('dragover', e => {
+  if (!drag) return;
+  const list = e.target.closest('.list');
+  autoScroll(e, list);
+  if (!list) { setDropList(null); return setLinkHover(null, null); }
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const cont = list.querySelector('.cards');
+  if (list.classList.contains('collapsed')) {
+    // Collapsed: the whole strip is one drop target, cards go to the bottom of the list
+    setLinkHover(null, null); setDropList(list);
+    if (ph.parentNode !== cont || ph.nextSibling) cont.appendChild(ph);
+    return;
+  }
+  setDropList(null);
+  const hc = drag.sep ? null : e.target.closest('.card:not(.sep):not(.dragging)');
+  const link = hc && inLinkZone(hc, e.clientX, e.clientY) ? hc : null;
+  setLinkHover(hc, link);
+  if (link) return;
+  // Plain reorder: only between chains, never inside one
+  let after = null;
+  for (const c of cont.querySelectorAll('.card:not(.dragging):not(.linked)')) {
+    const r = c.getBoundingClientRect();
+    if (e.clientY < r.top + r.height / 2) { after = c; break; }
+  }
+  if (ph.parentNode !== cont || ph.nextSibling !== after) cont.insertBefore(ph, after);
+});
+board.addEventListener('drop', e => {
+  if (!drag || !ph.parentNode) return;
+  e.preventDefault();
+  const cont = ph.parentNode;
+  const toList = findList(cont.closest('.list').dataset.list);
+  let index = 0;
+  for (const c of cont.children) {
+    if (c === ph) break;
+    if (c.classList.contains('card') && !c.classList.contains('dragging')) index++;
+  }
+  const src = findCard(drag.id), linkId = drag.link?.dataset.card;
+  endDrag();
+  if (src && toList) {
+    const [h, t] = chainRange(src.list, src.index);
+    const moved = src.list.cards.splice(h, t - h + 1);
+    if (linkId) {
+      // Link: goes directly under the target card (and above whatever was linked under it)
+      const tgt = findCard(linkId);
+      moved[0].linked = true;
+      tgt.list.cards.splice(tgt.index + 1, 0, ...moved);
+      fixLinks(tgt.list);
+      renderCards(src.list.id);
+      if (tgt.list !== src.list) renderCards(tgt.list.id);
+      return save();
+    }
+    delete moved[0].linked;
+    toList.cards.splice(index, 0, ...moved);
+    fixLinks(toList);
+    renderCards(src.list.id);
+    if (toList !== src.list) renderCards(toList.id);
+    save();
+  }
+});
+board.addEventListener('dragend', endDrag);
+
+/* ================= Drag lists by their header ================= */
+// The "space on the right" belongs to the position, not to the list: lists move, the gaps stay put.
+let listDrag = null;
+function setSpaceClass(el, n) {
+  el.classList.remove('space-1', 'space-2', 'space-3');
+  if (n) el.classList.add('space-' + n);
+}
+function applySlotSpacing() {
+  const spaces = state.lists.map(l => l.spaceAfter || 0);
+  let i = 0;
+  for (const c of board.children) {
+    if (c === listPh || (c.classList.contains('list') && !c.classList.contains('list-dragging'))) setSpaceClass(c, spaces[i++]);
+  }
+}
+const listPh = document.createElement('div');
+listPh.className = 'list-ph';
+board.addEventListener('dragstart', e => {
+  const head = e.target.closest?.('.list-head');
+  if (!head) return;
+  if (head.contains(document.activeElement) && document.activeElement.matches('input')) return e.preventDefault(); // editing the title
+  const el = head.closest('.list');
+  closeComposers(true); closePop();
+  listDrag = { id: el.dataset.list, el };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', listDrag.id);
+  const r = el.getBoundingClientRect();
+  e.dataTransfer.setDragImage(el, e.clientX - r.left, e.clientY - r.top);
+  listPh.style.width = r.width + 'px';
+  listPh.style.height = r.height + 'px';
+  // Layout changes must wait a frame, otherwise Chrome cancels the drag
+  requestAnimationFrame(() => {
+    if (!listDrag) return;
+    closeListSearch();
+    el.after(listPh);
+    el.classList.add('list-dragging');
+    applySlotSpacing();
+  });
+});
+board.addEventListener('dragover', e => {
+  if (!listDrag) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  autoScroll(e, null);
+  let before = $('#addList');
+  for (const l of board.querySelectorAll('.list:not(.list-dragging)')) {
+    const r = l.getBoundingClientRect();
+    if (e.clientX < r.left + r.width / 2) { before = l; break; }
+  }
+  if (listPh.nextSibling !== before) { board.insertBefore(listPh, before); applySlotSpacing(); }
+});
+board.addEventListener('drop', e => {
+  if (!listDrag || !listPh.parentNode) return;
+  e.preventDefault();
+  let index = 0;
+  for (const c of board.children) {
+    if (c === listPh) break;
+    if (c.classList.contains('list') && !c.classList.contains('list-dragging')) index++;
+  }
+  const l = findList(listDrag.id);
+  endListDrag();
+  if (!l) return;
+  const from = state.lists.indexOf(l);
+  if (from === index) return;
+  const spaces = state.lists.map(x => x.spaceAfter || 0);
+  state.lists.splice(from, 1);
+  state.lists.splice(index, 0, l);
+  state.lists.forEach((x, i) => { x.spaceAfter = spaces[i]; });
+  const x = board.scrollLeft;
+  render(); board.scrollLeft = x; save();
+});
+board.addEventListener('dragend', endListDrag);
+function endListDrag() {
+  if (!listDrag) return;
+  stopAutoScroll();
+  listPh.remove();
+  listDrag.el.classList.remove('list-dragging');
+  listDrag = null;
+  // Back to each list's own spacing (a successful drop re-renders right after)
+  for (const el of board.querySelectorAll('.list')) setSpaceClass(el, findList(el.dataset.list)?.spaceAfter || 0);
+}
+function endDrag() {
+  stopAutoScroll();
+  ph.remove();
+  ph.classList.remove('link');
+  document.body.classList.remove('dnd');
+  if (drag) {
+    drag.els.forEach(el => el.classList.remove('dragging'));
+    drag.link?.classList.remove('link-target');
+    drag.hover?.classList.remove('link-hover');
+    drag.drop?.classList.remove('drop-target');
+  }
+  drag = null;
+}
+function unlinkCard(id) {
+  const f = findCard(id); if (!f) return;
+  delete f.card.linked; // cards further down the chain stay linked to this one
+  renderCards(f.list.id); save();
+}
+// Smooth edge scrolling while dragging: dragover only reports the pointer position,
+// a per-frame loop does the scrolling, faster the closer the pointer is to the edge.
+let autoPos = null, autoRaf = 0, autoT = 0;
+function autoScroll(e, list) {
+  autoPos = { x: e.clientX, y: e.clientY, list };
+  if (!autoRaf) { autoT = performance.now(); autoRaf = requestAnimationFrame(autoStep); }
+}
+// 0..1 how deep the pointer is into an edge zone (1 = at or beyond the edge), eased
+const edgeDepth = (dist, zone) => dist >= zone ? 0 : Math.min(1, (zone - Math.max(0, dist)) / zone) ** 2;
+function autoStep(now) {
+  autoRaf = 0;
+  if (!(drag || listDrag) || !autoPos) return;
+  const dt = Math.min(50, now - autoT) / 1000; autoT = now;
+  const { x, y, list } = autoPos;
+  const br = board.getBoundingClientRect();
+  const H_ZONE = 120, H_MAX = 1500, V_ZONE = 60, V_MAX = 800; // px, px/second
+  const dx = (edgeDepth(br.right - x, H_ZONE) - edgeDepth(x - br.left, H_ZONE)) * H_MAX * dt;
+  if (dx) board.scrollLeft += dx;
+  let dy = 0;
+  if (list && !list.classList.contains('collapsed')) {
+    const cont = list.querySelector('.cards'), r = cont.getBoundingClientRect();
+    dy = (edgeDepth(r.bottom - y, V_ZONE) - edgeDepth(y - r.top, V_ZONE)) * V_MAX * dt;
+    if (dy) cont.scrollTop += dy;
+  }
+  if (dx || dy) autoRaf = requestAnimationFrame(autoStep);
+}
+function stopAutoScroll() { cancelAnimationFrame(autoRaf); autoRaf = 0; autoPos = null; }
+// Keep tracking the pointer when it is dragged over the header / outside the board
+document.addEventListener('dragover', e => { if ((drag || listDrag) && !board.contains(e.target)) autoScroll(e, null); });
+
+/* ================= List menu (popover) ================= */
+const pop = $('#pop');
+let popList = null;
+function openListMenu(listId, btn) {
+  if (popList === listId && !pop.classList.contains('hidden')) return closePop();
+  closeComposers(true);
+  popList = listId;
+  const l = findList(listId);
+  const idx = state.lists.indexOf(l);
+  const cur = l.color || DEFAULT_LIST;
+  pop.innerHTML = `
+    <div class="pop-head">Lijstacties<button class="icon-btn" data-pop="close">✕</button></div>
+    <button class="pop-item" data-pop="add-card">Kaart toevoegen</button>
+    ${l.cards.length ? '<button class="pop-item" data-pop="copy-text">Kaarten kopiëren als tekst</button>' : ''}
+    ${idx > 0 ? '<button class="pop-item" data-pop="left">← Lijst naar links verplaatsen</button>' : ''}
+    ${idx < state.lists.length - 1 ? '<button class="pop-item" data-pop="right">Lijst naar rechts verplaatsen →</button>' : ''}
+    <div class="pop-sec">Achtergrondkleur lijst</div>
+    <div class="swatches">${LIST_COLORS.map(c => `<button class="swatch${c.toLowerCase() === cur.toLowerCase() ? ' sel' : ''}" data-pop="color" data-color="${c}" style="background:${c};--sw-fg:${fgFor(c)}" title="${c}"></button>`).join('')}</div>
+    <label class="custom-color">Eigen kleur: <input type="color" data-pop="custom" value="${cur}"></label>
+    <div class="pop-sec">Verplaats naar</div>
+    <label class="pop-toggle"><input type="checkbox" data-pop="move-target"${l.moveTarget ? ' checked' : ''}> Toon deze lijst bij "Verplaats naar" (rechtsklik op kaart)</label>
+    <div class="pop-sec">Indeling</div>
+    <div class="space-row">Extra ruimte rechts <span class="space-opts">${[0, 1, 2, 3].map(n =>
+      `<button class="space-opt${l.spaceAfter === n ? ' sel' : ''}" data-pop="space" data-space="${n}">${n || 'Geen'}</button>`).join('')}</span></div>
+    <div class="pop-sec"></div>
+    <button class="pop-item danger" data-pop="delete">Lijst verwijderen${l.cards.length ? ` (${l.cards.length} kaarten)` : ''}</button>`;
+  pop.classList.remove('hidden');
+  const r = btn.getBoundingClientRect();
+  const left = Math.min(r.left, window.innerWidth - pop.offsetWidth - 8);
+  pop.style.left = Math.max(8, left) + 'px';
+  pop.style.top = (r.bottom + 6) + 'px';
+}
+function closePop() { pop.classList.add('hidden'); popList = null; }
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch { // fallback when the Clipboard API is unavailable
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove(); return ok;
+  }
+}
+function setListColor(listId, color) {
+  const l = findList(listId); if (!l) return;
+  l.color = color === DEFAULT_LIST ? null : color;
+  const el = listEl(listId);
+  if (l.color) { el.style.setProperty('--list-bg', l.color); el.style.setProperty('--list-fg', fgFor(l.color)); }
+  else { el.style.removeProperty('--list-bg'); el.style.removeProperty('--list-fg'); }
+  pop.querySelectorAll('.swatch').forEach(s => s.classList.toggle('sel', s.dataset.color.toLowerCase() === (l.color || DEFAULT_LIST).toLowerCase()));
+  save();
+}
+pop.addEventListener('click', e => {
+  const b = e.target.closest('[data-pop]'); if (!b) return;
+  const listId = popList, l = findList(listId);
+  switch (b.dataset.pop) {
+    case 'close': return closePop();
+    case 'add-card': closePop(); return openComposer(listId);
+    case 'copy-text':
+      copyText(l.cards.filter(c => c.type !== 'separator').map(c => `- ${c.text}\n`).join('\n')).then(ok => { b.textContent = ok ? 'Gekopieerd ✓' : 'Kopiëren mislukt'; });
+      return;
+    case 'color': return setListColor(listId, b.dataset.color);
+    case 'space': return setListSpace(listId, +b.dataset.space);
+    case 'left': case 'right': {
+      const i = state.lists.indexOf(l), j = b.dataset.pop === 'left' ? i - 1 : i + 1;
+      [state.lists[i], state.lists[j]] = [state.lists[j], state.lists[i]];
+      const x = board.scrollLeft;
+      closePop(); render(); board.scrollLeft = x; save(); return;
+    }
+    case 'delete':
+      if (!b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Klik nogmaals om te verwijderen'; return; }
+      state.lists.splice(state.lists.indexOf(l), 1);
+      const x = board.scrollLeft;
+      closePop(); render(); board.scrollLeft = x; save(); return;
+  }
+});
+pop.addEventListener('change', e => {
+  const l = findList(popList); if (!l) return;
+  if (e.target.dataset.pop === 'move-target') { l.moveTarget = e.target.checked; save(); }
+});
+function setListSpace(listId, n) {
+  const l = findList(listId), el = listEl(listId); if (!l) return;
+  el?.classList.remove(`space-${l.spaceAfter}`);
+  l.spaceAfter = n;
+  if (n) el?.classList.add(`space-${n}`);
+  pop.querySelectorAll('.space-opt').forEach(b => b.classList.toggle('sel', +b.dataset.space === n));
+  save();
+}
+pop.addEventListener('input', e => { if (e.target.dataset.pop === 'custom') setListColor(popList, e.target.value); });
+
+/* ================= Card context menu (right click) ================= */
+const ctx = $('#ctx');
+let ctxCard = null;
+board.addEventListener('contextmenu', e => {
+  const card = e.target.closest('.card');
+  if (card) { e.preventDefault(); return openCtx(card.dataset.card, e.clientX, e.clientY); }
+  // Right click elsewhere on a list opens its list menu at the cursor (text fields keep the browser menu)
+  const list = e.target.closest('.list');
+  if (!list || e.target.closest('input, textarea, [contenteditable="true"]')) return;
+  e.preventDefault();
+  closeCtx(); closePop();
+  openListMenu(list.dataset.list, { getBoundingClientRect: () => ({ left: e.clientX, bottom: e.clientY }) });
+});
+function openCtx(cardId, x, y) {
+  const f = findCard(cardId); if (!f) return;
+  closeComposers(true); closePop();
+  ctxCard = cardId;
+  const targets = state.lists.filter(l => l.moveTarget && l !== f.list);
+  ctx.innerHTML = `<div class="pop-sec">Verplaats naar</div>` +
+    (targets.length
+      ? `<div class="move-list">${targets.map(l => {
+          const bg = l.color || DEFAULT_LIST;
+          return `<button class="move-opt" data-ctx="move" data-list="${l.id}" style="background:${bg};color:${fgFor(bg)}">${esc(l.title)}<span>${l.cards.length}</span></button>`;
+        }).join('')}</div>`
+      : '<div class="ctx-hint">Nog geen lijsten ingeschakeld. Zet dit aan via ⋯ → "Verplaats naar" in een lijst.</div>') +
+    (f.card.type === 'separator'
+      ? '<div class="pop-sec"></div><button class="pop-item danger" data-ctx="del">Scheidingslijn verwijderen</button>'
+      : `<div class="pop-sec">Achtergrondkleur</div><div class="swatches">
+      <button class="swatch none${!f.card.color ? ' sel' : ''}" data-ctx="color" data-color="" title="Geen kleur"></button>${CARD_COLORS.map(c =>
+      `<button class="swatch${f.card.color === c.key ? ' sel' : ''}" data-ctx="color" data-color="${c.key}" style="background:${c.hex}" title="${c.label}"></button>`).join('')}</div>`) +
+    '<div class="pop-sec"></div><button class="pop-item" data-ctx="sep">Scheidingslijn eronder invoegen</button>' +
+    (f.card.type === 'separator' ? '' : '<button class="pop-item danger" data-ctx="del" data-confirm>Kaart verwijderen</button>');
+  ctx.classList.remove('hidden');
+  ctx.style.left = Math.max(8, Math.min(x, innerWidth - ctx.offsetWidth - 8)) + 'px';
+  ctx.style.top = Math.max(8, Math.min(y, innerHeight - ctx.offsetHeight - 8)) + 'px';
+}
+function closeCtx() { ctx.classList.add('hidden'); ctxCard = null; }
+ctx.addEventListener('contextmenu', e => e.preventDefault());
+ctx.addEventListener('click', e => {
+  const b = e.target.closest('[data-ctx]'); if (!b) return;
+  const f = findCard(ctxCard); if (!f) return closeCtx();
+  if (b.dataset.ctx === 'move') {
+    const to = findList(b.dataset.list);
+    if (to) {
+      // Moves just this card (e.g. to "done"): it leaves its chain, the rest stays linked
+      to.cards.push(removeCard(f.list, f.index));
+      renderCards(f.list.id); renderCards(to.id);
+      save();
+    }
+  } else if (b.dataset.ctx === 'sep') {
+    // below the whole chain, so it never splits one
+    f.list.cards.splice(chainRange(f.list, f.index)[1] + 1, 0, { id: uid(), type: 'separator', text: '', desc: '', color: null, createdAt: new Date().toISOString() });
+    renderCards(f.list.id); save();
+  } else if (b.dataset.ctx === 'del') {
+    if ('confirm' in b.dataset && !b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Klik nogmaals om te verwijderen'; return; }
+    removeCard(f.list, f.index);
+    renderCards(f.list.id); save();
+  } else if (b.dataset.ctx === 'color') {
+    f.card.color = b.dataset.color || null;
+    const el = board.querySelector(`[data-card="${ctxCard}"]`);
+    if (el) { if (f.card.color) el.dataset.color = f.card.color; else delete el.dataset.color; }
+    save();
+  }
+  closeCtx();
+});
+document.addEventListener('mousedown', e => { if (ctxCard && !e.target.closest('#ctx')) closeCtx(); });
+document.addEventListener('scroll', () => { if (ctxCard) closeCtx(); }, true);
+window.addEventListener('resize', () => { if (ctxCard) closeCtx(); });
+
+/* ================= Markdown ⇄ HTML ================= */
+// Descriptions are stored as Markdown (same as Trello). Everything is escaped before
+// formatting is applied, and only http(s)/mailto URLs survive, so no HTML can be injected.
+function cleanUrl(target) {
+  let t = String(target).trim()
+    .replace(/\s+("[^"]*"|'[^']*')\s*$/, '') // Trello adds titles like "‌" or "smartCard-embed"
+    .trim().replace(/^<|>$/g, '')
+    .replace(/^mailto:\s+/i, 'mailto:');
+  if (/^www\./i.test(t)) t = 'https://' + t;
+  return /^(https?:|mailto:)/i.test(t) && !/\s/.test(t) ? t : null;
+}
+const mdEmph = s => s
+  .replace(/\*\*(?=\S)([\s\S]*?)\*\*/g, '<strong>$1</strong>')
+  .replace(/__(?=\S)([\s\S]*?)__/g, '<strong>$1</strong>')
+  .replace(/~~(?=\S)([\s\S]*?)~~/g, '<del>$1</del>')
+  .replace(/(^|[^*\w])\*(?=\S)([^*\n]*?\S)\*(?![*\w])/g, '$1<em>$2</em>')
+  .replace(/(^|[^\w])_(?=\S)([^_\n]*?\S)_(?!\w)/g, '$1<em>$2</em>');
+function mdInline(raw) {
+  const held = [];
+  const hold = html => '\u0000' + (held.push(html) - 1) + '\u0000';
+  let s = raw.replace(/`([^`\n]+)`/g, (m, c) => hold(`<code>${esc(c)}</code>`));
+  s = s.replace(/(!?)\[([^\]]*)\]\(([^)]*)\)/g, (m, bang, txt, target) => {
+    const url = cleanUrl(target);
+    if (!url) return m;
+    return hold(bang
+      ? `<img src="${esc(url)}" alt="${esc(txt)}">`
+      : `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${mdEmph(esc(txt))}</a>`);
+  });
+  s = s.replace(/\bhttps?:\/\/[^\s<>()\u0000]*[^\s<>().,;:!?'"\u0000]/g,
+    u => hold(`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`));
+  s = mdEmph(esc(s));
+  while (/\u0000\d+\u0000/.test(s)) s = s.replace(/\u0000(\d+)\u0000/g, (m, i) => held[+i]);
+  return s;
+}
+const MD_LIST = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+const MD_TASK = /^(\s*(?:[-*+]|\d+[.)])\s+)\[([ xX])\](?=\s)/;
+const mdIsHr = l => /^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(l);
+// nested = inside a quote: tasks there are shown read-only
+function mdToHtml(md, nested) {
+  const lines = String(md || '').replace(/\r\n?/g, '\n').split('\n');
+  let html = '', i = 0, task = 0;
+  const blockStart = l => /^\s*$/.test(l) || /^\s*```/.test(l) || /^#{1,6}\s/.test(l) || mdIsHr(l) || /^\s*>/.test(l) || MD_LIST.test(l);
+  const body = s => s.split('\n').map(mdInline).join('<br>');
+  while (i < lines.length) {
+    const line = lines[i];
+    let m;
+    if (/^\s*$/.test(line)) { i++; continue; }
+    if (/^\s*```/.test(line)) {
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      html += `<pre><code>${esc(buf.join('\n'))}</code></pre>`;
+      continue;
+    }
+    if ((m = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line))) {
+      const n = Math.min(m[1].length, 3);
+      html += `<h${n}>${mdInline(m[2])}</h${n}>`; i++; continue;
+    }
+    if (mdIsHr(line)) { html += '<hr>'; i++; continue; }
+    if (/^\s*>/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ''));
+      html += `<blockquote>${mdToHtml(buf.join('\n'), true)}</blockquote>`;
+      continue;
+    }
+    if (MD_LIST.test(line)) {
+      const items = [];
+      while (i < lines.length) {
+        const l = lines[i], lm = MD_LIST.exec(l);
+        if (lm && !mdIsHr(l)) { items.push({ indent: lm[1].replace(/\t/g, '    ').length, ordered: /\d/.test(lm[2]), text: lm[3] }); i++; }
+        else if (/^\s+\S/.test(l) && items.length) { items[items.length - 1].text += '\n' + l.trim(); i++; }
+        else break;
+      }
+      const li = it => {
+        const t = /^\[([ xX])\]\s+([\s\S]*)$/.exec(it.text);
+        if (!t) return `<li>${body(it.text)}`;
+        return `<li class="task"><input type="checkbox"${t[1] !== ' ' ? ' checked' : ''}${nested ? ' disabled' : ` data-task="${task++}"`}>${body(t[2])}`;
+      };
+      const build = from => {
+        const base = items[from].indent, ordered = items[from].ordered;
+        let out = ordered ? '<ol>' : '<ul>', k = from;
+        while (k < items.length && (items[k].indent > base || (items[k].indent === base && items[k].ordered === ordered))) {
+          out += li(items[k]); k++;
+          if (k < items.length && items[k].indent > base) { const [sub, n] = build(k); out += sub; k = n; }
+          out += '</li>';
+        }
+        return [out + (ordered ? '</ol>' : '</ul>'), k];
+      };
+      for (let k = 0; k < items.length;) { const [h, n] = build(k); html += h; k = n; }
+      continue;
+    }
+    const buf = [line];
+    i++;
+    while (i < lines.length && !blockStart(lines[i])) buf.push(lines[i++]);
+    html += `<p>${body(buf.join('\n'))}</p>`;
+  }
+  return html;
+}
+// Flip the n-th task checkbox in a Markdown string (same order as mdToHtml numbers them)
+function mdToggleTask(md, n, checked) {
+  let k = 0, fence = false;
+  return md.split('\n').map(line => {
+    if (/^\s*```/.test(line)) fence = !fence;
+    if (fence || !MD_TASK.test(line)) return line;
+    return k++ === n ? line.replace(MD_TASK, `$1[${checked ? 'x' : ' '}]`) : line;
+  }).join('\n');
+}
+function htmlToMd(root) {
+  const out = [];
+  let para = '';
+  const wrap = (mark, s) => {
+    const t = s.trim();
+    if (!t) return s;
+    return s.match(/^\s*/)[0] + mark + t + mark + s.match(/\s*$/)[0];
+  };
+  const inl = n => {
+    if (n.nodeType === 3) return n.nodeValue.replace(/[ ]/g, ' ').replace(/​/g, '');
+    if (n.nodeType !== 1) return '';
+    const kids = () => [...n.childNodes].map(inl).join('');
+    switch (n.tagName) {
+      case 'BR': return '\n';
+      case 'B': case 'STRONG': return wrap('**', kids());
+      case 'I': case 'EM': return wrap('*', kids());
+      case 'S': case 'DEL': case 'STRIKE': return wrap('~~', kids());
+      case 'CODE': return n.textContent.replace(/​/g, '') ? '`' + n.textContent.replace(/​/g, '') + '`' : '';
+      case 'A': { const h = n.getAttribute('href') || '', t = kids(); return h ? `[${t || h}](${h})` : t; }
+      case 'IMG': return `![${n.getAttribute('alt') || ''}](${n.getAttribute('src') || ''})`;
+      case 'INPUT': case 'UL': case 'OL': return '';
+      case 'P': case 'DIV': return kids() + '\n';
+      default: return kids();
+    }
+  };
+  const push = s => { if (s.trim()) out.push(s); };
+  const flush = () => { push(para.replace(/^\n+|\n+$/g, '').replace(/[ \t]+\n/g, '\n')); para = ''; };
+  const list = (el, depth, acc) => {
+    const ordered = el.tagName === 'OL';
+    let n = 1;
+    for (const li of el.children) {
+      if (/^(UL|OL)$/.test(li.tagName)) { list(li, depth + 1, acc); continue; }
+      if (li.tagName !== 'LI') continue;
+      const cb = li.querySelector(':scope > input[type=checkbox]');
+      const text = [...li.childNodes].map(inl).join('').replace(/^\s+|\s+$/g, '').replace(/\n+/g, '\n' + '  '.repeat(depth + 1));
+      if (text) acc.push('  '.repeat(depth) + (ordered ? `${n++}. ` : '- ') + (cb ? `[${cb.checked ? 'x' : ' '}] ` : '') + text);
+      for (const sub of li.children) if (/^(UL|OL)$/.test(sub.tagName)) list(sub, depth + 1, acc);
+    }
+  };
+  const INLINE = /^(B|STRONG|I|EM|S|DEL|STRIKE|CODE|A|IMG|SPAN|FONT|BR|U|SUB|SUP|MARK|INPUT)$/;
+  const block = n => {
+    if (n.nodeType === 3 || (n.nodeType === 1 && INLINE.test(n.tagName))) { para += inl(n); return; }
+    if (n.nodeType !== 1) return;
+    flush();
+    const tag = n.tagName;
+    if (/^H[1-6]$/.test(tag)) push('#'.repeat(Math.min(+tag[1], 3)) + ' ' + inl(n).trim().replace(/\s*\n\s*/g, ' '));
+    else if (tag === 'UL' || tag === 'OL') { const acc = []; list(n, 0, acc); push(acc.join('\n')); }
+    else if (tag === 'BLOCKQUOTE') { const inner = htmlToMd(n); if (inner) push(inner.split('\n').map(l => l ? '> ' + l : '>').join('\n')); }
+    else if (tag === 'PRE') push('```\n' + n.textContent.replace(/​/g, '').replace(/\n$/, '') + '\n```');
+    else if (tag === 'HR') push('---');
+    else if ([...n.children].some(c => /^(P|DIV|UL|OL|H[1-6]|BLOCKQUOTE|PRE|HR)$/.test(c.tagName))) { [...n.childNodes].forEach(block); flush(); }
+    else { para = inl(n); flush(); }
+  };
+  [...root.childNodes].forEach(block);
+  flush();
+  return out.join('\n\n');
+}
+
+/* ================= Card modal ================= */
+const modal = $('#cardModal');
+const cardText = $('#cardText');
+const descView = $('#descView'), descEditor = $('#descEditor'), mdArea = $('#mdArea'), mdRaw = $('#mdRaw');
+const urlBar = $('#mdUrlBar'), urlInput = $('#mdUrlInput');
+let modalCard = null, descEditing = false, rawMode = false, descBaseline = '';
+try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch {}
+
+function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+function openCard(id) {
+  const f = findCard(id); if (!f || f.card.type === 'separator') return;
+  modalCard = id;
+  cardText.value = f.card.text;
+  $('#cardMeta').textContent = `Aangemaakt op ${fmtDate(f.card.createdAt)}`;
+  endDescEdit();
+  const del = modal.querySelector('[data-modal="delete"]');
+  del.classList.remove('confirm'); del.textContent = 'Kaart verwijderen';
+  modal.classList.remove('hidden');
+  modal.scrollTop = 0;
+  autoGrow(cardText);
+  cardText.focus();
+  cardText.setSelectionRange(cardText.value.length, cardText.value.length);
+}
+function closeCard() {
+  if (!modalCard) return;
+  if (descEditing) saveDesc(); // never silently lose typed text
+  const f = findCard(modalCard);
+  if (f && !cardText.value.trim()) cardText.value = f.card.text; // never leave an empty card
+  modal.classList.add('hidden');
+  modalCard = null;
+}
+cardText.addEventListener('input', () => {
+  autoGrow(cardText);
+  const f = findCard(modalCard); if (!f) return;
+  const v = cardText.value;
+  if (!v.trim()) return;
+  f.card.text = v.replace(/\s+$/, '');
+  const el = board.querySelector(`[data-card="${modalCard}"] .card-text`);
+  if (el) el.textContent = f.card.text;
+  save();
+});
+cardText.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); cardText.blur(); } });
+modal.addEventListener('click', e => {
+  if (e.target === modal) return closeCard();
+  const b = e.target.closest('[data-modal]'); if (!b) return;
+  const f = findCard(modalCard); if (!f) return;
+  switch (b.dataset.modal) {
+    case 'close': return closeCard();
+    case 'delete':
+      if (!b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Klik nogmaals om te bevestigen'; return; }
+      descEditing = false;
+      removeCard(f.list, f.index);
+      renderCards(f.list.id);
+      modal.classList.add('hidden'); modalCard = null;
+      save(); return;
+    case 'desc-edit': return startDescEdit();
+    case 'desc-save': return saveDesc();
+    case 'desc-cancel': return endDescEdit();
+  }
+});
+
+/* ---------- Description: view ---------- */
+function renderDescView() {
+  const f = findCard(modalCard); if (!f) return;
+  const has = !!f.card.desc.trim();
+  descView.className = has ? 'md-view desc-view' : 'desc-empty';
+  descView.innerHTML = has ? mdToHtml(f.card.desc) : 'Voeg een uitgebreidere beschrijving toe…';
+  $('#descEditBtn').classList.toggle('hidden', !has || descEditing);
+}
+descView.addEventListener('click', e => {
+  const cb = e.target.closest('input[data-task]');
+  if (cb) {
+    const f = findCard(modalCard); if (!f) return;
+    f.card.desc = mdToggleTask(f.card.desc, +cb.dataset.task, cb.checked);
+    save();
+    return;
+  }
+  if (e.target.closest('a')) return; // links open in a new tab
+  if (getSelection().toString()) return; // allow selecting text to copy
+  startDescEdit();
+});
+
+/* ---------- Description: editor ---------- */
+function startDescEdit() {
+  const f = findCard(modalCard); if (!f) return;
+  descEditing = true;
+  setRawMode(false);
+  mdArea.innerHTML = mdToHtml(f.card.desc) || '<p><br></p>';
+  prepEditorInputs();
+  descBaseline = htmlToMd(mdArea);
+  descView.classList.add('hidden');
+  descEditor.classList.remove('hidden');
+  $('#descActions').classList.remove('hidden');
+  $('#descEditBtn').classList.add('hidden');
+  updateEmpty();
+  mdArea.focus();
+  const r = document.createRange(); r.selectNodeContents(mdArea); r.collapse(false);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  updateToolbar();
+}
+function saveDesc() {
+  if (!descEditing) return;
+  const f = findCard(modalCard);
+  const md = (rawMode ? mdRaw.value : htmlToMd(mdArea)).replace(/\s+$/, '');
+  // Only overwrite when something changed, so imported Trello Markdown stays byte-identical
+  if (f && md !== (rawMode ? f.card.desc : descBaseline)) {
+    f.card.desc = md;
+    renderCards(f.list.id);
+    save();
+  }
+  endDescEdit();
+}
+function endDescEdit() {
+  descEditing = false;
+  hideMenu(); hideUrlBar();
+  descEditor.classList.add('hidden');
+  $('#descActions').classList.add('hidden');
+  descView.classList.remove('hidden');
+  renderDescView();
+}
+function prepEditorInputs() {
+  mdArea.querySelectorAll('input[type=checkbox]').forEach(i => { i.removeAttribute('disabled'); i.removeAttribute('data-task'); i.contentEditable = 'false'; });
+}
+function setRawMode(on) {
+  rawMode = on;
+  mdRaw.classList.toggle('hidden', !on);
+  mdArea.classList.toggle('hidden', on);
+  descEditor.classList.toggle('raw', on);
+  $('#mdToolbar [data-cmd="markdown"]').classList.toggle('on', on);
+}
+function toggleRaw() {
+  if (!rawMode) {
+    mdRaw.value = htmlToMd(mdArea);
+    setRawMode(true);
+    autoGrow(mdRaw);
+    mdRaw.focus();
+  } else {
+    mdArea.innerHTML = mdToHtml(mdRaw.value) || '<p><br></p>';
+    prepEditorInputs();
+    setRawMode(false);
+    updateEmpty();
+    mdArea.focus();
+  }
+}
+function updateEmpty() {
+  mdArea.classList.toggle('is-empty', !mdArea.textContent.trim() && !mdArea.querySelector('img,hr,li,pre,blockquote,input'));
+}
+function updateToolbar() {
+  for (const cmd of ['bold', 'italic']) {
+    let on = false;
+    try { on = document.queryCommandState(cmd); } catch {}
+    $(`#mdToolbar [data-cmd="${cmd}"]`).classList.toggle('on', on);
+  }
+}
+function caretBlock() {
+  const s = getSelection();
+  if (!s.rangeCount || !mdArea.contains(s.anchorNode)) return null;
+  let n = s.anchorNode;
+  if (n.nodeType === 3) n = n.parentNode;
+  const b = n.closest('p,div,h1,h2,h3,h4,h5,h6,li,pre');
+  return b && b !== mdArea && mdArea.contains(b) ? b : null;
+}
+// Checkbox at the start of a list item; the caret goes after it so typing lands in the item text
+function addCheckbox(li) {
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.contentEditable = 'false';
+  li.classList.add('task');
+  li.prepend(cb);
+  const r = document.createRange(); r.setStartAfter(cb); r.collapse(true);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function clearBlock(blk) {
+  blk.innerHTML = '<br>';
+  const r = document.createRange(); r.setStart(blk, 0); r.collapse(true);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function run(cmd, val = null) {
+  mdArea.focus();
+  document.execCommand(cmd, false, val);
+  updateEmpty(); updateToolbar();
+}
+function applyCmd(key) {
+  if (rawMode && !['markdown', 'help'].includes(key)) return;
+  switch (key) {
+    case 'p': return run('formatBlock', '<p>');
+    case 'h1': case 'h2': case 'h3': return run('formatBlock', `<${key}>`);
+    case 'bold': case 'italic': return run(key);
+    case 'strike': return run('strikeThrough');
+    case 'code': {
+      const sel = getSelection().toString();
+      return run('insertHTML', `<code>${esc(sel || 'code')}</code>​`);
+    }
+    case 'clear': return run('removeFormat');
+    case 'ul': return run('insertUnorderedList');
+    case 'ol': return run('insertOrderedList');
+    case 'task': {
+      let li = caretBlock()?.closest('li');
+      if (!li) { run('insertUnorderedList'); li = caretBlock()?.closest('li'); }
+      if (li && !li.querySelector(':scope > input')) addCheckbox(li);
+      return updateEmpty();
+    }
+    case 'quote': return run('formatBlock', '<blockquote>');
+    case 'codeblock': return run('formatBlock', '<pre>');
+    case 'hr': return run('insertHorizontalRule');
+    case 'link': case 'image': return openUrlBar(key);
+    case 'markdown': return toggleRaw();
+    case 'help': return showHelp();
+  }
+}
+
+/* ---------- Toolbar dropdowns, slash menu, help ---------- */
+const MD_ITEMS = {
+  p: 'Normale tekst', h1: 'Kop 1', h2: 'Kop 2', h3: 'Kop 3',
+  strike: 'Doorhalen', code: 'Code', clear: 'Opmaak wissen',
+  ul: 'Opsommingslijst', ol: 'Genummerde lijst', task: 'Takenlijst',
+  quote: 'Citaat', codeblock: 'Codeblok', hr: 'Scheidingslijn', link: 'Link', image: 'Afbeelding',
+};
+const MD_HINTS = { h1: '#', h2: '##', h3: '###', ul: '-', ol: '1.', task: '[]', quote: '>', codeblock: '```', hr: '---', strike: '~~', code: '`' };
+const MD_MENUS = {
+  text: ['p', 'h1', 'h2', 'h3'],
+  more: ['strike', 'code', 'clear'],
+  list: ['ul', 'ol', 'task'],
+  insert: ['quote', 'codeblock', 'hr'],
+};
+const SLASH_ITEMS = ['p', 'h1', 'h2', 'h3', 'ul', 'ol', 'task', 'quote', 'codeblock', 'hr', 'link', 'image'];
+const mdMenu = $('#mdMenu');
+let menu = null; // { keys, active, onPick, slash, blk, anchor }
+function showMenu(keys, rect, onPick, opts = {}) {
+  menu = { keys, active: 0, onPick, ...opts };
+  mdMenu.classList.remove('md-help');
+  mdMenu.innerHTML = keys.map((k, i) =>
+    `<button class="pop-item${opts.slash && i === 0 ? ' active' : ''}" data-i="${i}">${esc(MD_ITEMS[k])}${MD_HINTS[k] ? `<span class="mh">${esc(MD_HINTS[k])}</span>` : ''}</button>`).join('');
+  placeMenu(rect);
+}
+function placeMenu(rect) {
+  mdMenu.classList.remove('hidden');
+  const w = mdMenu.offsetWidth, h = mdMenu.offsetHeight;
+  mdMenu.style.left = Math.max(8, Math.min(rect.left, innerWidth - w - 8)) + 'px';
+  mdMenu.style.top = (rect.bottom + 4 + h > innerHeight ? Math.max(8, rect.top - h - 4) : rect.bottom + 4) + 'px';
+}
+function hideMenu() { mdMenu.classList.add('hidden'); menu = null; }
+function setMenuActive(i) {
+  const items = mdMenu.querySelectorAll('.pop-item'); if (!items.length) return;
+  menu.active = (i + items.length) % items.length;
+  items.forEach((el, k) => el.classList.toggle('active', k === menu.active));
+  items[menu.active].scrollIntoView({ block: 'nearest' });
+}
+function pickMenu(i) {
+  if (!menu) return;
+  const { keys, onPick, slash, blk } = menu;
+  const key = keys[i];
+  hideMenu();
+  if (slash && blk) {
+    clearBlock(blk);
+    // A non-list block chosen inside a list item: leave the list first
+    const li = blk.closest('li');
+    if (li && !['ul', 'ol', 'task', 'link', 'image'].includes(key)) {
+      li.querySelector(':scope > input')?.remove();
+      li.classList.remove('task');
+      run(li.parentElement.tagName === 'OL' ? 'insertOrderedList' : 'insertUnorderedList');
+    }
+  }
+  onPick(key);
+}
+function showHelp() {
+  menu = { keys: [], help: true };
+  mdMenu.classList.add('md-help');
+  mdMenu.innerHTML = `<div class="pop-head">Opmaak</div>
+    <table>
+      <tr><td><code># </code> <code>## </code> <code>### </code></td><td>Kop 1 / 2 / 3</td></tr>
+      <tr><td><code>- </code> of <code>* </code></td><td>Opsommingslijst</td></tr>
+      <tr><td><code>1. </code></td><td>Genummerde lijst</td></tr>
+      <tr><td><code>[] </code> in een lijst</td><td>Taak (aanvinkbaar)</td></tr>
+      <tr><td><code>&gt; </code></td><td>Citaat</td></tr>
+      <tr><td><code>\`\`\`</code></td><td>Codeblok</td></tr>
+      <tr><td><code>---</code></td><td>Scheidingslijn</td></tr>
+      <tr><td><code>/</code></td><td>Menu met alle blokken</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>I</kbd></td><td>Vet / cursief</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Opslaan</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Annuleren</td></tr>
+    </table>`;
+  placeMenu($('#mdToolbar [data-cmd="help"]').getBoundingClientRect());
+}
+mdMenu.addEventListener('mousedown', e => e.preventDefault()); // keep the editor selection
+mdMenu.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) pickMenu(+b.dataset.i); });
+
+const toolbar = $('#mdToolbar');
+toolbar.addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });
+toolbar.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.menu) {
+    if (menu && menu.anchor === b) return hideMenu();
+    if (rawMode) return;
+    showMenu(MD_MENUS[b.dataset.menu], b.getBoundingClientRect(), applyCmd, { anchor: b });
+  } else if (b.dataset.cmd) {
+    if (b.dataset.cmd === 'help' && menu?.help) return hideMenu();
+    hideMenu();
+    applyCmd(b.dataset.cmd);
+  }
+});
+document.addEventListener('mousedown', e => {
+  if (menu && !e.target.closest('#mdMenu') && !e.target.closest('#mdToolbar')) hideMenu();
+});
+document.addEventListener('selectionchange', () => { if (descEditing && !rawMode && mdArea.contains(getSelection().anchorNode)) updateToolbar(); });
+
+/* ---------- Link / image URL bar ---------- */
+let savedRange = null, urlKind = null;
+function openUrlBar(kind) {
+  const s = getSelection();
+  savedRange = s.rangeCount && mdArea.contains(s.anchorNode) ? s.getRangeAt(0).cloneRange() : null;
+  urlKind = kind;
+  urlInput.value = '';
+  urlInput.placeholder = kind === 'image' ? 'Plak de URL van een afbeelding (https://…)' : 'Plak een link (https://… of mailto:…)';
+  $('#mdUrlGo').textContent = kind === 'image' ? 'Afbeelding invoegen' : 'Link invoegen';
+  urlBar.classList.remove('hidden', 'bad');
+  urlInput.focus();
+}
+function hideUrlBar() { urlBar.classList.add('hidden'); savedRange = null; }
+function restoreRange() {
+  mdArea.focus();
+  if (savedRange) { const s = getSelection(); s.removeAllRanges(); s.addRange(savedRange); }
+}
+function urlSubmit() {
+  const url = cleanUrl(urlInput.value);
+  if (!url) { urlBar.classList.add('bad'); urlInput.focus(); return; }
+  const kind = urlKind;
+  restoreRange();
+  hideUrlBar();
+  if (kind === 'image') run('insertImage', url);
+  else if (getSelection().isCollapsed) run('insertHTML', `<a href="${esc(url)}">${esc(url)}</a> `);
+  else run('createLink', url);
+}
+$('#mdUrlGo').addEventListener('click', urlSubmit);
+$('#mdUrlCancel').addEventListener('click', () => { restoreRange(); hideUrlBar(); });
+urlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); urlSubmit(); }
+  else if (e.key === 'Escape') { e.stopPropagation(); restoreRange(); hideUrlBar(); }
+});
+
+/* ---------- Editor typing: shortcuts, slash menu, keys ---------- */
+const TYPE_SHORTCUTS = { '#': 'h1', '##': 'h2', '###': 'h3', '-': 'ul', '*': 'ul', '1.': 'ol', '>': 'quote', '[]': 'task', '[ ]': 'task' };
+mdArea.addEventListener('input', e => {
+  updateEmpty();
+  const blk = caretBlock();
+  if (!blk || blk.closest('pre')) { if (menu?.slash) hideMenu(); return; }
+  if (e.inputType === 'insertParagraph') {
+    const li = blk.closest('li');
+    if (li && li.classList.contains('task') && !li.querySelector(':scope > input')) addCheckbox(li);
+    return;
+  }
+  const txt = blk.textContent.replace(/ /g, ' ');
+  const plain = blk.tagName === 'P' || blk.tagName === 'DIV';
+  if (e.inputType === 'insertText' && e.data === ' ' && txt.endsWith(' ')) {
+    const key = TYPE_SHORTCUTS[txt.slice(0, -1)];
+    if (key && (plain || (key === 'task' && blk.tagName === 'LI'))) {
+      if (key === 'task' && blk.tagName === 'LI') { blk.innerHTML = '<br>'; clearBlock(blk); }
+      else clearBlock(blk);
+      hideMenu();
+      return applyCmd(key);
+    }
+  }
+  if (plain && (txt === '---' || txt === '```')) { clearBlock(blk); hideMenu(); return applyCmd(txt === '---' ? 'hr' : 'codeblock'); }
+  if ((plain || blk.tagName === 'LI') && txt.startsWith('/') && !txt.includes(' ')) {
+    const q = txt.slice(1).toLowerCase();
+    const keys = SLASH_ITEMS.filter(k => MD_ITEMS[k].toLowerCase().includes(q) || k.startsWith(q));
+    if (!keys.length) return hideMenu();
+    const r = getSelection().getRangeAt(0).getBoundingClientRect();
+    const rect = r.height ? r : blk.getBoundingClientRect();
+    showMenu(keys, rect, applyCmd, { slash: true, blk });
+  } else if (menu?.slash) hideMenu();
+});
+mdArea.addEventListener('keydown', e => {
+  if (menu && !menu.help && menu.slash) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); return setMenuActive(menu.active + 1); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); return setMenuActive(menu.active - 1); }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); return pickMenu(menu.active); }
+  }
+  if (e.key === 'Escape') { e.stopPropagation(); if (menu) hideMenu(); else endDescEdit(); return; }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); return saveDesc(); }
+  // Enter on an empty task item ends the list (like Trello), instead of adding another empty task
+  if (e.key === 'Enter' && !e.shiftKey) {
+    const li = caretBlock()?.closest('li');
+    const cb = li?.querySelector(':scope > input');
+    if (li && cb && !li.textContent.trim()) {
+      e.preventDefault();
+      cb.remove(); li.classList.remove('task');
+      return run(li.parentElement.tagName === 'OL' ? 'insertOrderedList' : 'insertUnorderedList');
+    }
+  }
+  // Backspace at the start of an empty task item removes its checkbox first
+  if (e.key === 'Backspace') {
+    const li = caretBlock()?.closest('li.task');
+    if (li && !li.textContent.trim() && li.querySelector(':scope > input')) { e.preventDefault(); li.querySelector(':scope > input').remove(); li.classList.remove('task'); }
+  }
+});
+mdArea.addEventListener('paste', e => {
+  e.preventDefault();
+  document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+});
+mdRaw.addEventListener('input', () => autoGrow(mdRaw));
+mdRaw.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.stopPropagation(); endDescEdit(); }
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveDesc(); }
+});
+
+/* ================= Search ================= */
+const search = $('#search'), results = $('#results');
+let matches = [], active = 0;
+// Each space-separated word must occur somewhere in the text (any order)
+const searchWords = q => q.toLowerCase().split(/\s+/).filter(Boolean);
+const hasAllWords = (text, words) => { const t = (text || '').toLowerCase(); return words.every(w => t.includes(w)); };
+function runSearch() {
+  const q = search.value.trim().toLowerCase();
+  if (!q) { hideResults(); return; }
+  const words = searchWords(q);
+  // Rank by number of distinct query words found (title or description), then newest created first
+  matches = [];
+  for (const l of state.lists) l.cards.forEach((c, idx) => {
+    if (c.type === 'separator') return;
+    const t = (c.text || '').toLowerCase(), d = (c.desc || '').toLowerCase();
+    let inDesc = false;
+    const found = new Set();
+    for (const w of words) {
+      if (t.includes(w)) found.add(w);
+      else if (d.includes(w)) { found.add(w); inDesc = true; }
+    }
+    if (found.size) matches.push({ l, c, idx, score: found.size, found, inDesc, created: Date.parse(c.createdAt) || 0 });
+  });
+  matches.sort((a, b) => b.score - a.score || b.created - a.created);
+  // Cards in a linked chain: one result per chain (at its best match), showing the whole chain
+  const byChain = new Map();
+  matches = matches.filter(m => {
+    const [h, t] = chainRange(m.l, m.idx);
+    if (h === t) return true;
+    const key = m.l.cards[h].id, seen = byChain.get(key);
+    if (seen) { seen.hits.set(m.c.id, m.inDesc); return false; }
+    m.chain = m.l.cards.slice(h, t + 1); m.hits = new Map([[m.c.id, m.inDesc]]);
+    byChain.set(key, m);
+    return true;
+  });
+  // Every query word must occur in one card; for a chain that is its best match (sorted first)
+  const need = new Set(words).size;
+  matches = matches.filter(m => m.found.size === need);
+  matches.length = Math.min(matches.length, 100);
+  active = 0;
+  if (!matches.length) { results.innerHTML = '<div class="empty">Geen kaarten gevonden</div>'; results.classList.remove('hidden'); return; }
+  // Longest words first so a word that contains another gets the full highlight
+  const re = new RegExp([...words].sort((a, b) => b.length - a.length).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
+  const hl = t => {
+    const one = t.replace(/\s+/g, ' ');
+    const first = one.search(re);
+    if (first < 0) return esc(one);
+    const start = Math.max(0, first - 30);
+    let out = start ? '…' : '', last = start;
+    for (const m of one.slice(start).matchAll(re)) {
+      const i = start + m.index;
+      out += esc(one.slice(last, i)) + '<mark>' + esc(m[0]) + '</mark>';
+      last = i + m[0].length;
+    }
+    return out + esc(one.slice(last));
+  };
+  // Body of one result: title, matching description snippet, list + date. `inDesc` undefined = not a hit
+  const itemHTML = (c, l, inDesc) => {
+    const created = Date.parse(c.createdAt) || 0;
+    return `<span class="r-text">${inDesc === false ? hl(c.text) : esc(c.text)}</span>${
+      inDesc ? `<span class="r-desc">${hl(descPlain(c.desc))}</span>` : ''}<span class="r-meta"><span class="r-list">${inDesc ? 'in beschrijving · ' : ''}${esc(l.title)}</span><span class="r-date">${
+      created ? new Date(created).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span></span>`;
+  };
+  // Linked chain: each card as its own result, indented under the first, inside a dashed outer box
+  const chainHTML = m => `<div class="r-chain">${m.chain.map((c, k) =>
+    `${k ? '<div class="r-link"></div>' : ''}<div class="r-step${m.hits.has(c.id) ? ' hit' : ''}" data-card="${c.id}">${itemHTML(c, m.l, m.hits.get(c.id))}</div>`).join('')}</div>`;
+  results.innerHTML = matches.map((m, i) =>
+    `<div class="result${m.chain ? ' chain' : ''}${i === 0 ? ' active' : ''}" data-i="${i}">${m.chain ? chainHTML(m) : itemHTML(m.c, m.l, m.inDesc)}</div>`).join('');
+  results.classList.remove('hidden');
+}
+const descPlain = md => md.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_~`#>]/g, '');
+function hideResults() { results.classList.add('hidden'); }
+function setActive(i) {
+  const items = results.querySelectorAll('.result'); if (!items.length) return;
+  active = (i + items.length) % items.length;
+  items.forEach((el, k) => el.classList.toggle('active', k === active));
+  items[active].scrollIntoView({ block: 'nearest' });
+}
+function focusCard(id) {
+  if (dashOpen()) toggleDash(false);
+  const f = findCard(id);
+  if (f?.list.collapsed) setCollapsed(f.list.id, false);
+  const el = board.querySelector(`[data-card="${id}"]`); if (!el) return;
+  hideResults();
+  search.blur();
+  el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  clearTimeout(el._flashT);
+  el._flashT = setTimeout(() => el.classList.remove('flash'), 2500);
+}
+search.addEventListener('input', runSearch);
+search.addEventListener('focus', () => { if (search.value.trim()) runSearch(); });
+search.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); setActive(active + 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(active - 1); }
+  else if (e.key === 'Enter') { if (matches[active]) focusCard(matches[active].c.id); }
+  else if (e.key === 'Escape') { search.value = ''; hideResults(); search.blur(); }
+});
+results.addEventListener('mousedown', e => e.preventDefault());
+results.addEventListener('click', e => {
+  const r = e.target.closest('.result'); if (!r) return;
+  // In a chain, clicking a specific step jumps to that card
+  focusCard(e.target.closest('.r-step')?.dataset.card || matches[+r.dataset.i].c.id);
+});
+
+/* ================= Dashboard (Ctrl+Alt+Shift+L) ================= */
+const dash = $('#dash');
+const DASH_ARCHIVE_KEY = 'kanban-dash-archive-v1';
+const DAY = 864e5;
+// Lists that count as "finished" by default; the user can override per list in the dashboard.
+const ARCHIVE_RE = /afgehandeld|afgewerkt|klaar|done|doofpot|archief/i;
+const AGE_BUCKETS = [
+  { label: '< 1 week',    max: 7,        color: '#cce0ff' },
+  { label: '1–4 weken',   max: 28,       color: '#7fb0ff' },
+  { label: '1–3 maanden', max: 91,       color: '#2f7ff0' },
+  { label: '> 3 maanden', max: Infinity, color: '#0b4fb8' },
+];
+const HEAT_COLORS = ['#09326c', '#0c66e4', '#579dff', '#85b8ff'];
+const WEEKDAYS = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
+const STOPWORDS = new Set(('de het een en van in op te met voor aan om bij als dat die dit er is niet naar ook of uit tot door over ' +
+  'zijn worden wordt kan kunnen moet moeten nog wel geen maar dan wat wie hoe waar welke deze meer via per vb bv etc zo al nu ' +
+  'ons onze mijn je jij jou we wij ze zij hij ik u uw hun hem haar zich mee af toe na tegen zonder tussen onder boven ivm vanuit ' +
+  'and the for with from to of on in at by is are be this that you your our').split(' '));
+
+const nf = n => n.toLocaleString('nl-BE');
+const plural = (n, one, many) => `${nf(n)} ${n === 1 ? one : many}`;
+const dayStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d; };
+const weekStart = t => { const d = dayStart(t); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d; };
+const dayKey = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+const shortDate = t => new Date(t).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' });
+const ageText = days => days < 1 ? 'vandaag' : days < 60 ? plural(days, 'dag', 'dagen')
+  : days < 730 ? plural(Math.round(days / 30.4), 'maand', 'maanden') : plural(Math.round(days / 365), 'jaar', 'jaar');
+const lum = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
+// Dark list colors vanish on the panel background, so fall back to the accent color.
+const barColor = l => /^#[0-9a-f]{6}$/i.test(l.color || '') && lum(l.color) > 0.3 ? l.color : 'var(--primary)';
+
+function archiveOverrides() {
+  try { return JSON.parse(localStorage.getItem(DASH_ARCHIVE_KEY)) || {}; } catch { return {}; }
+}
+const isArchive = (l, ov) => l.id in ov ? !!ov[l.id] : ARCHIVE_RE.test(l.title);
+
+function vbars(vals, labels, tips, every = 1) {
+  const max = Math.max(1, ...vals);
+  return `<div class="vbars">${vals.map((v, i) => `<div class="vc" title="${esc(tips[i])}"><div class="area"><div class="col" style="height:${v / max * 100}%"></div></div><span>${i % every ? '' : esc(labels[i])}</span></div>`).join('')}</div>`;
+}
+
+function renderDash() {
+  const now = Date.now();
+  const ov = archiveOverrides();
+  const items = [];
+  for (const l of state.lists) {
+    const arch = isArchive(l, ov);
+    for (const c of l.cards) {
+      if (c.type === 'separator') continue;
+      const t = Date.parse(c.createdAt);
+      items.push({ c, l, arch, t: isNaN(t) ? null : t, days: isNaN(t) ? null : Math.floor((now - t) / DAY) });
+    }
+  }
+  const dated = items.filter(x => x.t != null);
+  const open = items.filter(x => !x.arch);
+  const openDated = open.filter(x => x.t != null);
+  const thisWeek = weekStart(now).getTime();
+  const thisMonth = new Date(new Date(now).getFullYear(), new Date(now).getMonth(), 1).getTime();
+  const avgAge = openDated.length ? Math.round(openDated.reduce((s, x) => s + x.days, 0) / openDated.length) : 0;
+  const none = '<div class="none">Nog geen kaarten.</div>';
+
+  // 1. KPI tiles
+  const kpis = [
+    [nf(items.length), `kaarten in ${plural(state.lists.length, 'lijst', 'lijsten')}`],
+    [nf(open.length), 'open kaarten (zonder archieflijsten)'],
+    [nf(dated.filter(x => x.t >= thisWeek).length), `nieuw deze week · ${nf(dated.filter(x => x.t >= thisMonth).length)} deze maand`],
+    [ageText(avgAge), 'gemiddelde leeftijd open kaarten'],
+  ].map(([v, l]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+
+  // 2. Cards per list
+  const perList = state.lists.map(l => ({ l, n: l.cards.filter(c => c.type !== 'separator').length })).sort((a, b) => b.n - a.n);
+  const maxList = Math.max(1, ...perList.map(x => x.n));
+  const perListHTML = perList.map(({ l, n }) =>
+    `<div class="hbar" title="${esc(l.title)}: ${plural(n, 'kaart', 'kaarten')}"><span class="lbl">${esc(l.title)}</span><div class="track">${
+      n ? `<div class="seg" style="width:${n / maxList * 100}%;background:${barColor(l)}"></div>` : ''}</div><span class="n">${nf(n)}</span></div>`).join('');
+
+  // 6. Age distribution per (non-archive) list
+  const ageRows = state.lists.filter(l => !isArchive(l, ov)).map(l => {
+    const counts = AGE_BUCKETS.map(() => 0);
+    for (const x of openDated) if (x.l === l) counts[AGE_BUCKETS.findIndex(b => x.days < b.max)]++;
+    return { l, counts, n: counts.reduce((a, b) => a + b, 0) };
+  }).filter(r => r.n);
+  const maxAge = Math.max(1, ...ageRows.map(r => r.n));
+  const ageHTML = ageRows.length ? ageRows.map(({ l, counts, n }) =>
+    `<div class="hbar"><span class="lbl" title="${esc(l.title)}">${esc(l.title)}</span><div class="track">${counts.map((k, i) => k
+      ? `<div class="seg" style="width:${k / maxAge * 100}%;background:${AGE_BUCKETS[i].color}" title="${esc(l.title)} · ${AGE_BUCKETS[i].label}: ${plural(k, 'kaart', 'kaarten')}"></div>` : '').join('')
+    }</div><span class="n">${nf(n)}</span></div>`).join('') +
+    `<div class="legend">${AGE_BUCKETS.map(b => `<span><i style="background:${b.color}"></i>${b.label}</span>`).join('')}</div>` : none;
+
+  // 3a. Cards created per week (last 26 weeks)
+  const perWeek = new Map();
+  for (const x of dated) { const w = weekStart(x.t).getTime(); perWeek.set(w, (perWeek.get(w) || 0) + 1); }
+  const weeks = [];
+  for (let i = 25; i >= 0; i--) { const d = new Date(thisWeek); d.setDate(d.getDate() - 7 * i); weeks.push(d.getTime()); }
+  const weekVals = weeks.map(w => perWeek.get(w) || 0);
+  const weekHTML = vbars(weekVals, weeks.map(shortDate),
+    weeks.map((w, i) => `Week van ${shortDate(w)}: ${plural(weekVals[i], 'kaart', 'kaarten')}`), 4);
+
+  // 3b. Calendar heatmap (last 53 weeks, Monday first)
+  const perDay = new Map();
+  for (const x of dated) { const k = dayKey(new Date(x.t)); perDay.set(k, (perDay.get(k) || 0) + 1); }
+  const start = new Date(thisWeek); start.setDate(start.getDate() - 52 * 7);
+  const today = dayStart(now).getTime();
+  const days = [];
+  for (let i = 0; i < 53 * 7; i++) { const d = new Date(start); d.setDate(d.getDate() + i); days.push(d); }
+  const maxDay = Math.max(1, ...days.map(d => perDay.get(dayKey(d)) || 0));
+  let months = '<span></span>';
+  for (let w = 0; w < 53; w++) {
+    const first = days.slice(w * 7, w * 7 + 7).find(d => d.getDate() === 1);
+    months += `<span>${first ? first.toLocaleDateString('nl-BE', { month: 'short' }) : ''}</span>`;
+  }
+  const heatHTML = `<div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${
+    WEEKDAYS.map((d, i) => `<span class="d">${i % 2 ? '' : d}</span>`).join('')}${days.map(d => {
+      if (d.getTime() > today) return '<span class="c f"></span>';
+      const v = perDay.get(dayKey(d)) || 0;
+      const bg = v ? `style="background:${HEAT_COLORS[Math.min(3, Math.ceil(Math.sqrt(v / maxDay) * 4) - 1)]}"` : '';
+      return `<span class="c" ${bg} title="${plural(v, 'kaart', 'kaarten')} · ${d.toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}"></span>`;
+    }).join('')}</div></div><div class="legend"><span>Minder</span>${
+    ['var(--subtle)', ...HEAT_COLORS].map(c => `<i style="background:${c};margin:0"></i>`).join('')}<span>Meer</span></div>`;
+
+  // 4. Busiest weekdays and hours
+  const wd = WEEKDAYS.map(() => 0), hr = Array(24).fill(0);
+  for (const x of dated) { const d = new Date(x.t); wd[(d.getDay() + 6) % 7]++; hr[d.getHours()]++; }
+  const wdHTML = vbars(wd, WEEKDAYS, WEEKDAYS.map((d, i) => `${d}: ${plural(wd[i], 'kaart', 'kaarten')}`));
+  const hrLabels = hr.map((_, i) => `${i}u`);
+  const hrHTML = vbars(hr, hrLabels, hr.map((v, i) => `${i}:00–${i}:59: ${plural(v, 'kaart', 'kaarten')}`), 3);
+
+  // 5. Oldest open cards
+  const oldest = [...openDated].sort((a, b) => a.t - b.t).slice(0, 10);
+  const oldHTML = oldest.length ? `<ul class="old-list">${oldest.map(x =>
+    `<li data-card="${x.c.id}" title="Toon op het bord"><div class="t"><b>${esc(x.c.text || '(zonder titel)')}</b><span>${esc(x.l.title)} · ${
+      new Date(x.t).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}</span></div><span class="age">${ageText(x.days)}</span></li>`).join('')}</ul>` : none;
+
+  // 9. Top keywords in card titles (each word counted once per card)
+  const freq = new Map();
+  for (const x of items) {
+    for (const w of new Set((x.c.text || '').toLowerCase().split(/[^\p{L}\p{N}]+/u)))
+      if (w.length > 2 && !/^\d+$/.test(w) && !STOPWORDS.has(w)) freq.set(w, (freq.get(w) || 0) + 1);
+  }
+  const top = [...freq].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 40);
+  const maxWord = top.length ? top[0][1] : 1;
+  const wordsHTML = top.length ? `<div class="words">${top.map(([w, n]) =>
+    `<button data-word="${esc(w)}" title="Zoek “${esc(w)}” (${plural(n, 'kaart', 'kaarten')})" style="font-size:${Math.round(12 + 10 * Math.sqrt(n / maxWord))}px">${esc(w)}<small>${nf(n)}</small></button>`).join('')}</div>` : none;
+
+  const archHTML = `<div class="archive"><span>Archieflijsten (tellen niet mee als open kaarten):</span>${state.lists.map(l =>
+    `<label><input type="checkbox" data-arch="${l.id}"${isArchive(l, ov) ? ' checked' : ''}>${esc(l.title)}</label>`).join('')}</div>`;
+
+  dash.innerHTML = `<div class="dash-wrap">
+    <div class="dash-head"><h2>Dashboard</h2><span class="hint">Ctrl+Alt+Shift+L of Esc om terug te gaan naar het bord</span></div>
+    ${kpis}
+    <section class="panel"><h3>Kaarten per lijst</h3>${perList.length ? perListHTML : none}</section>
+    <section class="panel"><h3>Leeftijd van open kaarten per lijst</h3>${ageHTML}</section>
+    <section class="panel wide"><h3>Nieuwe kaarten per week<small>laatste 26 weken</small></h3>${weekHTML}</section>
+    <section class="panel wide"><h3>Activiteit<small>aangemaakte kaarten per dag, laatste jaar</small></h3>${heatHTML}</section>
+    <section class="panel"><h3>Per weekdag<small>wanneer je kaarten aanmaakt</small></h3>${wdHTML}</section>
+    <section class="panel"><h3>Per uur</h3>${hrHTML}</section>
+    <section class="panel"><h3>Oudste open kaarten</h3>${oldHTML}</section>
+    <section class="panel"><h3>Meest gebruikte woorden<small>in kaarttitels — klik om te zoeken</small></h3>${wordsHTML}</section>
+    ${archHTML}
+  </div>`;
+}
+
+const dashOpen = () => !dash.classList.contains('hidden');
+function toggleDash(show) {
+  if (show) {
+    if (ctxCard) closeCtx();
+    if (!pop.classList.contains('hidden')) closePop();
+    hideResults();
+    renderDash();
+    dash.scrollTop = 0;
+  }
+  dash.classList.toggle('hidden', !show);
+  board.classList.toggle('hidden', show);
+}
+dash.addEventListener('click', e => {
+  const li = e.target.closest('[data-card]');
+  if (li) { toggleDash(false); focusCard(li.dataset.card); return; }
+  const w = e.target.closest('[data-word]');
+  if (w) { toggleDash(false); search.value = w.dataset.word; search.focus(); runSearch(); }
+});
+dash.addEventListener('change', e => {
+  const id = e.target.dataset.arch; if (!id) return;
+  const ov = archiveOverrides();
+  ov[id] = e.target.checked;
+  try { localStorage.setItem(DASH_ARCHIVE_KEY, JSON.stringify(ov)); } catch {}
+  const y = dash.scrollTop;
+  renderDash();
+  dash.scrollTop = y;
+});
+
+/* ================= Global keys ================= */
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.altKey && e.shiftKey && e.code === 'KeyL') { e.preventDefault(); toggleDash(!dashOpen()); return; }
+  if (e.key === 'Escape') {
+    if (!$('#oneDrive').classList.contains('hidden')) closeOneDrive();
+    else if (ctxCard) closeCtx();
+    else if (!modal.classList.contains('hidden')) closeCard();
+    else if (!pop.classList.contains('hidden')) closePop();
+    else if (dashOpen() && e.target !== search) toggleDash(false);
+  }
+  const typing = e.target.matches('input, textarea') || e.target.isContentEditable;
+  if (!typing && (e.key === '/' || (e.key === 'f' && (e.ctrlKey || e.metaKey)))) { e.preventDefault(); search.focus(); search.select(); }
+});
+
+/* ================= Init ================= */
+(async function init() {
+  try { const c = localStorage.getItem(CACHE_KEY); if (c) state = normalize(JSON.parse(c)); } catch {}
+  render(); // instant paint from cache while the file is being read
+  setStatus('ok');
+  if (!('showOpenFilePicker' in window)) { showConnect('first'); return; }
+  let h = null;
+  try { h = await idbGet('handle'); } catch {}
+  if (!h) { showConnect('first'); return; }
+  fileHandle = h;
+  setStatus('ok');
+  try {
+    if (await h.queryPermission({ mode: 'readwrite' }) === 'granted') await loadFromHandle(h);
+    else showConnect('reconnect');
+  } catch (e) {
+    showConnect('reconnect');
+    $('#connectErr').textContent = 'Kon het bestand niet lezen: ' + e.message;
+  }
+})();
+})();
+</script>
+</body>
+</html>
